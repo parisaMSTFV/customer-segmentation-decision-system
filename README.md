@@ -1,36 +1,70 @@
 # Customer Segmentation Decision System
 
-Decision-driven, multi-dimensional customer segmentation framework designed to guide targeting, marketing investment, and budget allocation in a large-scale e-commerce environment.
+## Executive Summary
+
+This repository presents a decision-driven, multi-dimensional customer segmentation system designed to align marketing investment, personalization, and budget allocation with measurable business impact.
+
+Unlike single-model clustering approaches, this framework integrates behavioral, transactional, psychographic, and CX dimensions into an interpretable segmentation layer that directly informs strategic planning, profitability optimization, and ROI-driven decision-making.
+
+![Segmentation Architecture](docs/images/architecture.png)
+
+---
 
 ## Why this exists
-Marketing investments become inefficient when customer value and behavior are not consistently defined.
-This project designs a segmentation system that transforms fragmented customer signals into an interpretable decision layer for planning, personalization, and performance management.
+
+Marketing investments lose efficiency when customer value, behavior, and lifecycle signals are fragmented across teams and systems.
+
+This project designs a segmentation system that transforms distributed customer signals into a structured, interpretable decision layer that supports planning cycles, targeting precision, and performance management.
+
+---
 
 ## What this system does
-- Builds **5 segmentation dimensions**: Demographics, Transactional, Behavioral, Psychographics, CX
-- Produces dimension-level clusters and an integrated segmentation output
-- Enables decision-making for:
-  - targeting & personalization
-  - budget allocation & ROI optimization
-  - campaign effectiveness measurement
+
+- Builds **five independent segmentation dimensions**:
+  - Demographics
+  - Transactional
+  - Behavioral
+  - Psychographic
+  - CX (Customer Experience)
+
+- Produces dimension-level clusters and integrates them into a unified segmentation layer
+
+- Enables strategic decision-making for:
+  - Targeting & personalization
+  - Budget allocation & ROI optimization
+  - Campaign effectiveness differentiation
   - KPI monitoring and performance escalation
 
-## Architecture (high-level)
-1) Feature engineering (SQL)  
-2) Dimension-level clustering (Python notebooks)  
-3) Integration layer (multi-dimensional scoring / business rules)  
-4) Visualization & stakeholder layer (BI)  
-5) Monitoring & iteration (alerts + updates)
+This system emphasizes **interpretability and decision usability over black-box optimization**.
 
-> Note: Production datasets, internal schemas, and operational dashboards are intentionally excluded.  
-> This repository focuses on the **methodology, architecture, and safe examples**.
+---
 
-## Repository structure
-- `docs/` Business context, solution overview, dimension design, modeling approach, impact validation
-- `examples/sql_samples/` Safe SQL samples (schema-neutral)
-- `examples/notebooks/` Demo clustering notebook (synthetic data)
-- `artifacts/` Metric dictionary + segment definitions
-- `presentation/` Case study summary (PDF)
+## Key Business Outcomes
+
+- Reduced inefficient marketing spend through precision targeting  
+- Enabled budget reallocation based on profitability signals  
+- Improved campaign effectiveness differentiation across segments  
+- Built scalable, refreshable segmentation infrastructure  
+
+---
+
+## Architecture (High-Level)
+
+1. Feature engineering layer (SQL pipelines)  
+2. Dimension-level clustering (Python notebooks)  
+3. Integration layer (multi-dimensional scoring + business rules)  
+4. Visualization & stakeholder layer (BI dashboards)  
+5. Monitoring & iteration (alerts, drift tracking, refresh cycles)  
+
+> Production datasets, internal schemas, and operational dashboards are intentionally excluded.  
+> This repository focuses on methodology, architecture, and safe demonstration artifacts.
+
+---
+
+## Repository Structure
+
+
+---
 
 ## Documentation
 
@@ -42,7 +76,22 @@ This project designs a segmentation system that transforms fragmented customer s
 - [Metric Dictionary](artifacts/metric_dictionary.md)
 - [Segment Definitions](artifacts/segment_definitions.md)
 
+---
+
+## Design Philosophy
+
+This segmentation system was designed to:
+
+- Prioritize business interpretability over algorithmic complexity  
+- Align analytical outputs with strategic planning cycles  
+- Ensure profitability visibility across segments  
+- Support continuous monitoring and refresh  
+
+Segmentation is treated as a **dynamic decision infrastructure**, not a static clustering output.
+
+---
 
 ## Contact
-- LinkedIn: https://www.linkedin.com/in/parisa-mostafavi/
-- Email: parisamostafavi23@gmail.com
+
+LinkedIn: https://www.linkedin.com/in/parisa-mostafavi/  
+Email: parisamostafavi23@gmail.com
