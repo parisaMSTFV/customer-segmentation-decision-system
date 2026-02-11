@@ -128,3 +128,31 @@ Examples:
 
 These relationships prevent misleading interpretations based on single-metric analysis.
 
+
+---
+
+## Feature Transformations
+
+To improve clustering stability and interpretability:
+
+- Log transformation applied to skewed monetary features  
+- Ratio-based features preferred over raw counts when meaningful  
+- Recency treated as inverse engagement signal  
+- Outliers capped when necessary  
+
+These transformations ensured statistical stability while preserving business meaning.
+
+
+---
+
+## Refresh & Update Cadence
+
+Segmentation metrics are designed for periodic refresh:
+
+- Behavioral metrics: Monthly  
+- Transactional metrics: Monthly / Quarterly  
+- CX metrics: Rolling update  
+
+Segmentation is treated as a dynamic decision system rather than a static classification.
+
+
