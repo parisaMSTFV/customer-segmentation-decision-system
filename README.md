@@ -32,6 +32,17 @@ This project designs a segmentation system that transforms fragmented customer s
 - `artifacts/` Metric dictionary + segment definitions
 - `presentation/` Case study summary (PDF)
 
+## Documentation
+
+- [Business Context](docs/01_business_context.md)
+- [Solution Overview](docs/02_solution_overview.md)
+- [Segmentation Dimensions](docs/03_segmentation_dimensions.md)
+- [Modeling Approach](docs/04_modeling_approach.md)
+- [Validation & Impact](docs/05_validation_and_impact.md)
+- [Metric Dictionary](artifacts/metric_dictionary.md)
+- [Segment Definitions](artifacts/segment_definitions.md)
+
+
 ## Contact
 - LinkedIn: https://www.linkedin.com/in/parisa-mostafavi/
 - Email: parisamostafavi23@gmail.com
