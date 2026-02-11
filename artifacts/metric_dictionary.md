@@ -112,3 +112,19 @@ Business Use: Risk segmentation and quality control
 - Designed for scalability and periodic refresh  
 
 Note: Production-level metric logic and data sources are excluded for confidentiality.
+
+---
+
+## Metric Relationships & Interactions
+
+Segmentation logic considers interactions between metrics rather than isolated values.
+
+Examples:
+
+- High revenue + high recency → At-risk high-value customer  
+- High sessions + low orders → Engaged but non-converting user  
+- High margin + moderate frequency → Premium profitable segment  
+- High frequency + low margin → Discount-sensitive frequent buyer  
+
+These relationships prevent misleading interpretations based on single-metric analysis.
+
