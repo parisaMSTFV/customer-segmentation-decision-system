@@ -1,0 +1,14 @@
+{
+  "seed": 42,
+  "customer_count": 3000,
+  "development_share": 0.75,
+  "candidate_clusters": [3, 4, 5, 6, 7, 8],
+  "selection_seeds": [11, 23, 37, 53, 71],
+  "bootstrap_runs": 8,
+  "minimum_cluster_share": 0.05,
+  "selection_weights": {
+    "silhouette": 0.7,
+    "stability": 0.3
+  }
+}
+

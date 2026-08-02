@@ -1,0 +1,252 @@
+# Customer Segmentation Decision System
+
+A reproducible behavioral and value segmentation benchmark that connects cluster validation to testable marketing decisions without claiming unmeasured business impact.
+
+## Executive summary
+
+Customer targeting becomes difficult when value, activity, price sensitivity, engagement, and experience signals are reviewed separately. This project generates a fully synthetic customer benchmark, selects a K-means solution on 2,250 development customers, freezes the pipeline, and evaluates it on 750 untouched holdout customers. The selected ten-feature model recovers the planted synthetic structure with an adjusted Rand index (ARI) of **0.971**, compared with **0.538** for an RFM-only baseline. Holdout silhouette is **0.434**, and mean bootstrap stability is **0.998**.
+
+The output is a six-segment decision layer with an action hypothesis and a measurement guardrail for every segment. These results verify the public pipeline against known synthetic structure; they do **not** demonstrate campaign lift, ROI improvement, or production accuracy.
+
+![Synthetic holdout evaluation](reports/figures/evaluation_summary.png)
+
+## Business problem
+
+Aggregate customer metrics can hide materially different decision contexts: valuable customers becoming inactive, frequent customers whose economics depend on discounts, or highly engaged customers who rarely convert. A useful segmentation system needs to separate these patterns, remain reproducible, and translate profiles into experiments that a marketing or customer team can evaluate.
+
+This repository addresses three portfolio-relevant questions:
+
+1. Can multi-signal behavioral segmentation recover structure that an RFM-only baseline misses?
+2. Is the result stable across seeds, samples, and an untouched holdout?
+3. Can each discovered segment be connected to an explicit action hypothesis and guardrail without turning correlation into a causal claim?
+
+## Analytical questions
+
+- Which number of clusters balances separation, seed stability, and usable segment size?
+- How much synthetic structure does the enhanced feature set recover relative to RFM alone?
+- Are the selected clusters stable when the development population is resampled?
+- What behaviors make each cluster distinct on the holdout set?
+- Which decision could each profile inform, and what must be measured before activation?
+
+## Dataset and generation method
+
+All 3,000 customers are synthetic. The generator creates six overlapping behavioral archetypes and then samples noisy observations for ten non-sensitive features:
+
+- recency, order frequency, and revenue;
+- margin rate;
+- sessions and conversion rate;
+- discount-order share and category breadth;
+- return rate and satisfaction score.
+
+The planted archetype is stored separately in `data/synthetic/evaluator_truth.csv`. It is never present in the model matrix and is used only after fitting to evaluate recovery on the holdout. `data/synthetic/customer_features.csv` contains the observations available to the model.
+
+No real customer, order, company, schema, endpoint, or internal metric is included. Demographics and protected characteristics are deliberately excluded because they are unnecessary for this public decision example and would introduce additional fairness and governance risk.
+
+See [data provenance](docs/DATA_PROVENANCE.md) and the [data README](data/README.md).
+
+## Evaluation design
+
+The split and evaluator boundary are explicit:
+
+```mermaid
+flowchart TD
+    A["Synthetic generator"] --> B["Fixed development / holdout split"]
+    B --> C["Development-only selection and fitting"]
+    B --> D["Sealed holdout features and evaluator truth"]
+    C --> E["Frozen model"]
+    D --> F["Holdout evaluation"]
+    E --> F
+```
+
+- **Development:** 2,250 customers for candidate selection, scaling, centroid fitting, and bootstrap analysis.
+- **Holdout:** 750 customers used only after the enhanced and baseline models are frozen.
+- **Model candidates:** K-means with `k` from 3 through 8 and five controlled selection seeds.
+- **Eligibility guardrail:** every development cluster must contain at least 5% of customers.
+- **Selection score:** 70% mean silhouette and 30% mean seed-stability ARI.
+- **Baseline:** a K-means model using recency, frequency, and monetary value only, fitted on the same development population with the selected `k`.
+
+The selected `k=6` score is **0.606786**, narrowly ahead of `k=3` at **0.605843** and `k=7` at **0.605043**. The close result is a sensitivity warning, not evidence that six segments are universally correct.
+
+![Development-only model selection](reports/figures/model_selection.png)
+
+## Methodology
+
+1. Generate deterministic synthetic observations and a separate evaluator-truth table.
+2. Validate identifiers, required fields, missingness, rate bounds, and absence of truth leakage.
+3. Split customers once with a controlled seed.
+4. Apply `log1p` to skewed count and monetary features, then standardize using development-only parameters.
+5. Evaluate candidate cluster counts using separation, seed stability, and minimum-size constraints.
+6. Fit the final enhanced and RFM baseline pipelines on development customers.
+7. Predict untouched holdout customers and compute intrinsic and synthetic-evaluator metrics.
+8. Repeat fitting on eight bootstrap samples and compare predictions on a common development frame.
+9. Assign descriptive names from relative holdout profiles and create a decision playbook with explicit guardrails.
+10. Generate CSV, JSON, HTML, and PNG artifacts from one command.
+
+## Baseline
+
+The RFM-only baseline uses the same transformation and K-means implementation as the enhanced model, but sees only recency, orders, and revenue. Holding the algorithm and development split constant makes the comparison about feature coverage rather than modeling complexity.
+
+The baseline reaches holdout synthetic-truth ARI **0.538**. The enhanced ten-feature model reaches **0.971**, an absolute improvement of **0.433** on this synthetic benchmark.
+
+## Evaluation metrics
+
+| Metric | Executed result | Interpretation |
+|---|---:|---|
+| Enhanced holdout synthetic-truth ARI | 0.971 | Recovery of planted structure; synthetic evaluator only |
+| RFM baseline holdout synthetic-truth ARI | 0.538 | Understandable comparison using three classic value features |
+| Shuffled-label null ARI | -0.0003 | Chance-like reference |
+| Holdout silhouette | 0.434 | Separation in the enhanced transformed feature space |
+| Holdout Davies–Bouldin | 0.919 | Compactness/separation; lower is better |
+| Holdout Calinski–Harabasz | 658.3 | Between/within-cluster dispersion ratio |
+| Mean bootstrap pairwise ARI | 0.998 | Agreement across eight resampled fits |
+| Minimum bootstrap pairwise ARI | 0.993 | Worst observed resample agreement |
+| Smallest holdout segment | 11.7% | No tiny holdout segment in this run |
+
+The source of record is [`reports/metrics.json`](reports/metrics.json). ARI against planted truth cannot be calculated on ordinary unlabeled customer data; silhouette, size, stability, drift, and expert review remain available.
+
+## Key results
+
+- Six clusters were selected without using evaluator truth.
+- The enhanced feature set recovered substantially more planted structure than RFM alone.
+- All six holdout profiles received unique, behavior-based names.
+- Every segment has one testable action, one explicit guardrail, and impact status `Not evaluated`.
+- The complete artifact fingerprint is `3bd7bcbcc54d81a1`; a clean smoke run reproduces it.
+
+These results describe code executed with seed `42`. They are not estimates of expected results on private or production data.
+
+## Visual results
+
+### Holdout segment map
+
+The PCA projection is a diagnostic view of the frozen model's holdout assignments. PCA is not used for clustering.
+
+![Holdout customer map](reports/figures/segment_map.png)
+
+### Relative profiles
+
+Columns are standardized across the six holdout segment means. Red indicates a higher relative value and blue a lower one; for features such as recency or return rate, “higher” is not necessarily desirable.
+
+![Relative segment profiles](reports/figures/segment_profiles.png)
+
+### Decision playbook
+
+The playbook makes the distinction between a descriptive profile and a causal treatment decision visible.
+
+![Segment decision playbook](reports/figures/decision_playbook.png)
+
+An executable standalone output is available as the [segment decision brief](reports/segment_decision_brief.html).
+
+## Business interpretation
+
+| Segment | Holdout share | Profile summary | Decision hypothesis |
+|---|---:|---|---|
+| Loyal high value | 15.9% | Recent, high frequency, high value, strong margin and satisfaction | Test recognition or premium cross-sell while protecting margin |
+| High value at risk | 11.7% | Historically valuable, less recent, and currently less engaged | Test a reason-specific, contact-capped win-back journey |
+| Growth potential | 21.3% | Moderate activity and value with broader-category potential | Test recommendation-led cross-sell before broad incentives |
+| Engaged low conversion | 18.8% | High sessions and category breadth but low orders and conversion | Test friction-reduction or trust interventions before assuming price sensitivity |
+| Discount-led frequent | 14.0% | Frequent ordering with high discount and return rates but low margin | Test margin-safe bundles with subsidy controls |
+| Dormant low value | 18.3% | Long recency, low activity, low value, and weak satisfaction | Use low-cost tests or suppress expensive reacquisition |
+
+These are activation hypotheses. Incremental effects require randomized experiments or a defensible matched design. The full wording and measurement requirements are in the [decision playbook](docs/decision_playbook.md).
+
+## Repository structure
+
+```text
+customer-segmentation-decision-system/
+├── configs/analysis.json
+├── data/
+│   ├── synthetic/
+│   └── processed/
+├── docs/
+├── reports/
+│   ├── figures/
+│   ├── metrics.json
+│   ├── model_selection.csv
+│   ├── segment_profiles.csv
+│   ├── decision_playbook.csv
+│   └── segment_decision_brief.html
+├── scripts/check_sensitive.py
+├── src/customer_segmentation/
+├── tests/
+├── .github/workflows/ci.yml
+├── Makefile
+└── pyproject.toml
+```
+
+The reusable pipeline lives in `src`; no notebook is required to reproduce the result.
+
+## How to run
+
+Python 3.11 or 3.12 is recommended.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+make reproduce
+```
+
+The equivalent direct command is:
+
+```bash
+MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli reproduce
+```
+
+To execute the full pipeline without modifying repository artifacts:
+
+```bash
+make smoke
+```
+
+## Tests and quality checks
+
+```bash
+make check
+```
+
+The current suite contains **19 passing tests** covering:
+
+- deterministic generation and observation/truth separation;
+- schema, bounds, duplicate identifiers, and truth-leakage rejection;
+- feature transformations without input mutation;
+- label-permutation invariance and candidate eligibility;
+- unique business naming and action/guardrail completeness;
+- required pipeline artifacts, split integrity, and deterministic fingerprints;
+- explicit absence of campaign-impact claims.
+
+Ruff linting and formatting, the complete smoke pipeline, and the sensitive-content scan also pass locally. GitHub Actions runs the same controls on Python 3.11 and 3.12 without credentials or private data.
+
+## Privacy and safety status
+
+**Green for the rebuilt local version:** all records are explicitly synthetic, evaluator truth is separated, generated assignments contain no planted labels, and the sensitive-content scan passes. Review [SECURITY.md](SECURITY.md) before adapting the workflow to private data.
+
+Segment labels must not be treated as sensitive-trait inference, fraud evidence, individual eligibility decisions, or permanent customer identities.
+
+## Limitations
+
+- Synthetic personas are cleaner and more stable than real customer behavior, so the high truth ARI is expected to overstate production recoverability.
+- The six-cluster selection advantage is narrow and should be tested across time windows and business constraints.
+- K-means favors roughly spherical structure after scaling and may miss nonlinear or density-based patterns.
+- The public feature set excludes seasonality, acquisition channel, campaign exposure, category sequences, and missing-data mechanisms.
+- Bootstrap agreement tests sampling robustness, not temporal drift.
+- Business names are relative summaries of the current profiles and require stakeholder review.
+- No campaign was executed; lift, incremental revenue, retention effect, and ROI are `Not evaluated`.
+
+## Potential next steps
+
+1. Add time-based backtesting, segment migration matrices, and population-stability monitoring.
+2. Compare K-means with Gaussian mixture and hierarchical alternatives under the same guardrails.
+3. Add missingness and outlier stress scenarios to the synthetic generator.
+4. Evaluate fairness and exclusion risks before introducing geography or other potentially sensitive proxies.
+5. Run controlled activation experiments and report incremental lift with confidence intervals.
+6. Add model-version and segment-definition governance for production refreshes.
+
+## Interview guide
+
+The [interview guide](docs/interview_guide.md) explains the evaluation boundary, baseline choice, close `k` sensitivity, action guardrails, and production trade-offs in concise terms.
+
+## License
+
+MIT
+
