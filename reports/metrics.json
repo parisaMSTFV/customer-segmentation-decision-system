@@ -1,0 +1,35 @@
+{
+  "artifact_fingerprint": "3bd7bcbcc54d81a1",
+  "data": {
+    "customers": 3000,
+    "development_customers": 2250,
+    "holdout_customers": 750,
+    "schema_checks_passed": 8,
+    "synthetic_personas": 6
+  },
+  "decision_layer": {
+    "claimed_campaign_impact": "Not evaluated",
+    "segments_with_action_hypothesis": 6,
+    "segments_with_guardrail": 6
+  },
+  "evaluation_boundary": "Held-out synthetic customers; no causal or production claims",
+  "holdout_evaluation": {
+    "enhanced_synthetic_truth_ari": 0.9706769966976773,
+    "holdout_calinski_harabasz": 658.3072718115201,
+    "holdout_davies_bouldin": 0.9190921577750459,
+    "holdout_silhouette": 0.43425651738206683,
+    "minimum_holdout_segment_share": 0.11733333333333333,
+    "rfm_baseline_synthetic_truth_ari": 0.5381452527447707,
+    "shuffled_label_null_ari": -0.0002847030945915073
+  },
+  "selection": {
+    "minimum_cluster_share_guardrail": 0.05,
+    "scope": "Development features only; evaluator truth excluded",
+    "selected_cluster_count": 6
+  },
+  "stability": {
+    "bootstrap_runs": 8,
+    "mean_pairwise_ari": 0.997624891372438,
+    "minimum_pairwise_ari": 0.992626611071019
+  }
+}

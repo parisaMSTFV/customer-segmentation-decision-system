@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Synthetic Customer Segmentation Decision Brief</title>
+<style>
+body{font-family:Inter,Arial,sans-serif;margin:0;background:#f6f1e7;color:#243b53}
+main{max-width:1180px;margin:auto;padding:40px}
+h1{margin-bottom:6px}
+.boundary{background:#fff3cd;border-left:5px solid #e9c46a;padding:14px 18px;margin:22px 0}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:24px 0}
+.card{background:white;padding:18px;border-radius:10px}
+.card span{display:block;color:#66788a;font-size:13px}
+.card strong{font-size:26px}
+table{border-collapse:collapse;width:100%;background:white;margin:16px 0 34px}
+th,td{padding:11px;border-bottom:1px solid #e8e2d6;text-align:left;vertical-align:top}
+th{background:#243b53;color:white}h2{margin-top:34px}
+@media(max-width:800px){.cards{grid-template-columns:1fr 1fr}main{padding:22px}}
+</style></head><body><main>
+<h1>Synthetic Customer Segmentation Decision Brief</h1>
+<p>Behavioral and value segmentation evaluated on held-out synthetic customers.</p>
+<div class="boundary"><strong>Decision boundary:</strong> segment actions are hypotheses for
+controlled tests. No campaign lift, ROI improvement, or causal impact is claimed.</div>
+<div class="cards"><div class='card'><span>Selected clusters</span><strong>6</strong></div><div class='card'><span>Holdout truth ARI</span><strong>0.971</strong></div><div class='card'><span>RFM baseline ARI</span><strong>0.538</strong></div><div class='card'><span>Bootstrap stability</span><strong>0.998</strong></div></div>
+<h2>Holdout profiles</h2><table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>segment_name</th>
+      <th>customers</th>
+      <th>share</th>
+      <th>orders_12m</th>
+      <th>revenue_12m</th>
+      <th>recency_days</th>
+      <th>sessions_90d</th>
+      <th>margin_rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Loyal high value</td>
+      <td>119</td>
+      <td>15.9%</td>
+      <td>13.075630</td>
+      <td>2,087</td>
+      <td>18.596639</td>
+      <td>31.873950</td>
+      <td>27.0%</td>
+    </tr>
+    <tr>
+      <td>High value at risk</td>
+      <td>88</td>
+      <td>11.7%</td>
+      <td>8.488636</td>
+      <td>1,541</td>
+      <td>146.897727</td>
+      <td>6.090909</td>
+      <td>23.9%</td>
+    </tr>
+    <tr>
+      <td>Growth potential</td>
+      <td>160</td>
+      <td>21.3%</td>
+      <td>4.081250</td>
+      <td>382</td>
+      <td>41.737500</td>
+      <td>23.356250</td>
+      <td>21.9%</td>
+    </tr>
+    <tr>
+      <td>Engaged low conversion</td>
+      <td>141</td>
+      <td>18.8%</td>
+      <td>1.234043</td>
+      <td>87</td>
+      <td>84.191489</td>
+      <td>46.028369</td>
+      <td>19.3%</td>
+    </tr>
+    <tr>
+      <td>Discount-led frequent</td>
+      <td>105</td>
+      <td>14.0%</td>
+      <td>10.371429</td>
+      <td>662</td>
+      <td>26.380952</td>
+      <td>29.552381</td>
+      <td>9.0%</td>
+    </tr>
+    <tr>
+      <td>Dormant low value</td>
+      <td>137</td>
+      <td>18.3%</td>
+      <td>0.489051</td>
+      <td>24</td>
+      <td>256.525547</td>
+      <td>2.343066</td>
+      <td>13.9%</td>
+    </tr>
+  </tbody>
+</table>
+<h2>Activation playbook</h2><table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>segment_name</th>
+      <th>customer_share</th>
+      <th>decision_objective</th>
+      <th>testable_action</th>
+      <th>guardrail</th>
+      <th>impact_status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Loyal high value</td>
+      <td>0.158667</td>
+      <td>Protect retention and margin</td>
+      <td>Test recognition benefits or premium cross-sell</td>
+      <td>Keep a holdout; avoid discounts that subsidize existing demand</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+    <tr>
+      <td>High value at risk</td>
+      <td>0.117333</td>
+      <td>Diagnose and recover valuable inactivity</td>
+      <td>Test a time-boxed, reason-specific win-back journey</td>
+      <td>Cap contact frequency and measure incremental reactivation</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+    <tr>
+      <td>Growth potential</td>
+      <td>0.213333</td>
+      <td>Increase category depth profitably</td>
+      <td>Test recommendation-led cross-sell before broad incentives</td>
+      <td>Track contribution margin as well as conversion</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+    <tr>
+      <td>Engaged low conversion</td>
+      <td>0.188000</td>
+      <td>Remove conversion friction</td>
+      <td>Test onsite guidance, trust cues, or checkout diagnostics</td>
+      <td>Do not assume price is the barrier without an experiment</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+    <tr>
+      <td>Discount-led frequent</td>
+      <td>0.140000</td>
+      <td>Preserve frequency while improving economics</td>
+      <td>Test margin-safe bundles and thresholded offers</td>
+      <td>Enforce contribution-margin and subsidy guardrails</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+    <tr>
+      <td>Dormant low value</td>
+      <td>0.182667</td>
+      <td>Control reacquisition cost</td>
+      <td>Use low-cost owned-channel tests or suppress paid targeting</td>
+      <td>Reassess periodically; never treat the label as permanent</td>
+      <td>Hypothesis; requires a randomized or matched evaluation</td>
+    </tr>
+  </tbody>
+</table>
+</main></body></html>
