@@ -26,4 +26,7 @@ jobs:
       - run: MPLCONFIGDIR=.matplotlib python -m pytest
       - run: python scripts/check_sensitive.py
       - run: MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli smoke
-
+      - run: >-
+          MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli segment
+          --input data/synthetic/customer_features.csv
+          --output-dir artifacts/segment-fixture

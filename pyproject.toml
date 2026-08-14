@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "customer-segmentation-decision-system"
-version = "1.0.0"
-description = "Reproducible customer segmentation with holdout evaluation and decision guardrails"
+version = "1.1.0"
+description = "Customer segmentation with external CSV contracts, holdout evaluation, stability, and decision guardrails"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -39,4 +39,3 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-

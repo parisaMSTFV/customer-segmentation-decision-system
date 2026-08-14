@@ -30,3 +30,10 @@ def test_schema_rejects_invalid_rate() -> None:
     features.loc[0, "return_rate"] = 1.2
     with pytest.raises(DataValidationError, match="between zero and one"):
         validate_customer_features(features)
+
+
+def test_schema_rejects_nonfinite_feature() -> None:
+    features, _truth = generate_customers(700, 7)
+    features.loc[0, "revenue_12m"] = float("inf")
+    with pytest.raises(DataValidationError, match="finite numeric"):
+        validate_customer_features(features)
