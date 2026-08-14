@@ -156,7 +156,11 @@ def plot_segment_map(
     _save(fig, output_path)
 
 
-def plot_segment_profiles(profiles: pd.DataFrame, output_path: Path) -> None:
+def plot_segment_profiles(
+    profiles: pd.DataFrame,
+    output_path: Path,
+    title: str = "Relative holdout segment profiles (column z-scores)",
+) -> None:
     """Plot relative feature profiles for business interpretation."""
     feature_columns = [
         "recency_days",
@@ -202,7 +206,7 @@ def plot_segment_profiles(profiles: pd.DataFrame, output_path: Path) -> None:
                 fontsize=8,
                 color="white" if abs(value) > 1.0 else COLORS["navy"],
             )
-    axis.set_title("Relative holdout segment profiles (column z-scores)", loc="left", weight="bold")
+    axis.set_title(title, loc="left", weight="bold")
     fig.colorbar(image, ax=axis, shrink=0.8, label="Relative to segment means")
     _save(fig, output_path)
 

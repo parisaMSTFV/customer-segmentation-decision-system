@@ -1,4 +1,4 @@
-.PHONY: install reproduce smoke test lint security check
+.PHONY: install reproduce smoke segment-fixture test lint security check
 
 install:
 	python -m pip install -e ".[dev]"
@@ -8,6 +8,9 @@ reproduce:
 
 smoke:
 	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli smoke
+
+segment-fixture:
+	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli segment --input data/synthetic/customer_features.csv --output-dir artifacts/segment-fixture
 
 test:
 	MPLCONFIGDIR=.matplotlib python -m pytest
@@ -19,5 +22,4 @@ lint:
 security:
 	python scripts/check_sensitive.py
 
-check: lint test security smoke
-
+check: lint test security smoke segment-fixture

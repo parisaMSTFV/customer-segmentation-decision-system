@@ -1,6 +1,10 @@
 # Customer Segmentation Decision System
 
-A reproducible behavioral and value segmentation benchmark that connects cluster validation to testable marketing decisions without claiming unmeasured business impact.
+[![CI](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml/badge.svg)](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB)](https://www.python.org/)
+[![Input](https://img.shields.io/badge/input-CSV%20contract%20v1.0-0F766E)](docs/INPUT_SCHEMA.md)
+
+Turn behavioral and value signals into a validated six-segment decision layer with explicit action hypotheses and measurement guardrails. The same schema supports both the controlled benchmark and a user's customer-feature CSV.
 
 ## Executive summary
 
@@ -9,6 +13,17 @@ Customer targeting becomes difficult when value, activity, price sensitivity, en
 The output is a six-segment decision layer with an action hypothesis and a measurement guardrail for every segment. These results verify the public pipeline against known synthetic structure; they do **not** demonstrate campaign lift, ROI improvement, or production accuracy.
 
 ![Synthetic holdout evaluation](reports/figures/evaluation_summary.png)
+
+## Use your customer features
+
+```bash
+python -m pip install -e ".[dev]"
+customer-segmentation segment \
+  --input /path/to/customer_features.csv \
+  --output-dir artifacts/customer-segmentation
+```
+
+The command validates ten declared features, rejects label leakage, fits the governed six-segment definition, and writes a stable assignment schema plus a fingerprinted segment definition. Campaign impact remains `Not evaluated`. See the [external input contract](docs/INPUT_SCHEMA.md).
 
 ## Business problem
 
@@ -157,7 +172,7 @@ customer-segmentation-decision-system/
 ├── data/
 │   ├── synthetic/
 │   └── processed/
-├── docs/
+├── docs/INPUT_SCHEMA.md
 ├── reports/
 │   ├── figures/
 │   ├── metrics.json
@@ -205,7 +220,7 @@ make smoke
 make check
 ```
 
-The current suite contains **19 passing tests** covering:
+The current suite contains **22 passing tests** covering:
 
 - deterministic generation and observation/truth separation;
 - schema, bounds, duplicate identifiers, and truth-leakage rejection;
@@ -214,12 +229,13 @@ The current suite contains **19 passing tests** covering:
 - unique business naming and action/guardrail completeness;
 - required pipeline artifacts, split integrity, and deterministic fingerprints;
 - explicit absence of campaign-impact claims.
+- external CSV validation, stable assignment schema, and segment-definition fingerprints.
 
 Ruff linting and formatting, the complete smoke pipeline, and the sensitive-content scan also pass locally. GitHub Actions runs the same controls on Python 3.11 and 3.12 without credentials or private data.
 
 ## Privacy and safety status
 
-**Green for the rebuilt local version:** all records are explicitly synthetic, evaluator truth is separated, generated assignments contain no planted labels, and the sensitive-content scan passes. Review [SECURITY.md](SECURITY.md) before adapting the workflow to private data.
+All committed records are synthetic, evaluator truth is separated, generated assignments contain no planted labels, and the sensitive-content scan passes. External inputs and `artifacts/` outputs remain local and Git-ignored. Review [SECURITY.md](SECURITY.md) before processing governed customer data.
 
 Segment labels must not be treated as sensitive-trait inference, fraud evidence, individual eligibility decisions, or permanent customer identities.
 
@@ -249,4 +265,3 @@ The [interview guide](docs/interview_guide.md) explains the evaluation boundary,
 ## License
 
 MIT
-
