@@ -13,3 +13,4 @@ The segment names summarize relative holdout profiles; they are not personal att
 
 These actions are deliberately absent from the model objective. Clustering describes behavioral structure; it cannot prove which treatment will work.
 
+The playbook must remain on hold whenever fit-quality or score-monitoring gates fail. Passing a segmentation gate does not replace an activation experiment.

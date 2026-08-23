@@ -67,8 +67,11 @@ def _standardize_profiles(profiles: pd.DataFrame) -> pd.DataFrame:
     return (values - values.mean()) / standard_deviation
 
 
-def assign_business_names(profiles: pd.DataFrame) -> dict[int, str]:
-    """Assign six unique descriptive names from relative cluster profiles."""
+def assign_business_names(
+    profiles: pd.DataFrame,
+    require_confident_match: bool = False,
+) -> dict[int, str]:
+    """Assign unique descriptive names and optionally reject weak semantic matches."""
     if len(profiles) != len(SEGMENT_ORDER):
         raise ValueError("the decision playbook requires exactly six clusters")
     z = _standardize_profiles(profiles)
@@ -102,6 +105,37 @@ def assign_business_names(profiles: pd.DataFrame) -> dict[int, str]:
         z["revenue_12m"] + z["orders_12m"] + z["margin_rate"] - z["recency_days"],
     )
     assignments[remaining.pop()] = "Growth potential"
+    if require_confident_match:
+        by_name = {name: cluster_id for cluster_id, name in assignments.items()}
+        semantic_checks = {
+            "Dormant low value": (
+                z.loc[by_name["Dormant low value"], "recency_days"] > 0
+                and z.loc[by_name["Dormant low value"], "orders_12m"] < 0
+                and z.loc[by_name["Dormant low value"], "revenue_12m"] < 0
+            ),
+            "Discount-led frequent": (
+                z.loc[by_name["Discount-led frequent"], "discount_order_share"] > 0
+                and z.loc[by_name["Discount-led frequent"], "orders_12m"] > 0
+                and z.loc[by_name["Discount-led frequent"], "margin_rate"] < 0
+            ),
+            "Engaged low conversion": (
+                z.loc[by_name["Engaged low conversion"], "sessions_90d"] > 0
+                and z.loc[by_name["Engaged low conversion"], "conversion_rate_90d"] < 0
+            ),
+            "High value at risk": (
+                z.loc[by_name["High value at risk"], "revenue_12m"] > 0
+                and z.loc[by_name["High value at risk"], "recency_days"] > 0
+            ),
+            "Loyal high value": (
+                z.loc[by_name["Loyal high value"], "revenue_12m"] > 0
+                and z.loc[by_name["Loyal high value"], "orders_12m"] > 0
+                and z.loc[by_name["Loyal high value"], "margin_rate"] > 0
+                and z.loc[by_name["Loyal high value"], "recency_days"] < 0
+            ),
+        }
+        failed = sorted(name for name, passed in semantic_checks.items() if not passed)
+        if failed:
+            raise ValueError(f"clusters do not support governed business names: {failed}")
     return assignments
 
 
@@ -115,7 +149,10 @@ def name_profiles(profiles: pd.DataFrame, names: dict[int, str]) -> pd.DataFrame
     return named.sort_values("segment_name").reset_index(drop=True)
 
 
-def build_decision_playbook(profiles: pd.DataFrame) -> pd.DataFrame:
+def build_decision_playbook(
+    profiles: pd.DataFrame,
+    activation_status: str = "hypothesis_only",
+) -> pd.DataFrame:
     """Create action hypotheses and safeguards for each discovered segment."""
     rows = []
     for row in profiles.itertuples(index=False):
@@ -128,6 +165,7 @@ def build_decision_playbook(profiles: pd.DataFrame) -> pd.DataFrame:
                 "testable_action": action,
                 "guardrail": guardrail,
                 "impact_status": "Hypothesis; requires a randomized or matched evaluation",
+                "activation_status": activation_status,
             }
         )
     return pd.DataFrame(rows)

@@ -32,7 +32,7 @@ from customer_segmentation.reporting import (
     plot_segment_profiles,
     write_decision_brief,
 )
-from customer_segmentation.schema import validate_customer_features
+from customer_segmentation.schema import SNAPSHOT_COLUMN, validate_customer_features
 from customer_segmentation.synthetic import generate_customers
 
 
@@ -79,18 +79,34 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
     development_features = prepare_features(development)
     holdout_features = prepare_features(holdout)
     candidate_metrics = evaluate_candidates(development_features, config)
-    selected_cluster_count = select_cluster_count(candidate_metrics)
+    selected_cluster_count = select_cluster_count(
+        candidate_metrics,
+        config.governed_cluster_count,
+        config.selection_tolerance,
+    )
     candidate_metrics["selected"] = candidate_metrics["cluster_count"] == selected_cluster_count
 
     enhanced_model = build_model(selected_cluster_count, config.seed)
     enhanced_model.fit(development_features)
-    baseline_model = build_model(selected_cluster_count, config.seed)
-    baseline_model.fit(prepare_features(development, RFM_COLUMNS))
-    holdout_metrics, holdout_labels, _baseline_labels = evaluate_holdout(
+    development_rfm_features = prepare_features(development, RFM_COLUMNS)
+    rfm_candidate_metrics = evaluate_candidates(development_rfm_features, config)
+    rfm_selected_cluster_count = select_cluster_count(
+        rfm_candidate_metrics,
+        selection_tolerance=0.0,
+    )
+    rfm_candidate_metrics["selected"] = (
+        rfm_candidate_metrics["cluster_count"] == rfm_selected_cluster_count
+    )
+    fixed_k_baseline_model = build_model(selected_cluster_count, config.seed)
+    fixed_k_baseline_model.fit(development_rfm_features)
+    self_selected_baseline_model = build_model(rfm_selected_cluster_count, config.seed)
+    self_selected_baseline_model.fit(development_rfm_features)
+    holdout_metrics, holdout_labels = evaluate_holdout(
         holdout_features,
         holdout_truth,
         enhanced_model,
-        baseline_model,
+        fixed_k_baseline_model,
+        self_selected_baseline_model,
         config.seed + 1,
     )
     bootstrap_mean, bootstrap_minimum = bootstrap_stability(
@@ -100,13 +116,13 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
         config.seed,
     )
     profiles = create_cluster_profiles(holdout, pd.Series(holdout_labels))
-    name_map = assign_business_names(profiles)
+    name_map = assign_business_names(profiles, require_confident_match=True)
     named_profiles = name_profiles(profiles, name_map)
     playbook = build_decision_playbook(named_profiles)
 
     all_features = prepare_features(observations)
     all_labels = enhanced_model.predict(all_features)
-    segments = observations[["customer_id"]].copy()
+    segments = observations[["customer_id", SNAPSHOT_COLUMN]].copy()
     segments["cluster_id"] = all_labels
     segments["segment_name"] = segments["cluster_id"].map(name_map)
     segments = segments.merge(split_assignments, on="customer_id", validate="one_to_one")
@@ -117,6 +133,7 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
         output_root / "data" / "processed" / "split_assignments.csv",
         output_root / "data" / "processed" / "customer_segments.csv",
         output_root / "reports" / "model_selection.csv",
+        output_root / "reports" / "rfm_model_selection.csv",
         output_root / "reports" / "segment_profiles.csv",
         output_root / "reports" / "decision_playbook.csv",
     ]
@@ -127,6 +144,7 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
             split_assignments,
             segments,
             candidate_metrics,
+            rfm_candidate_metrics,
             named_profiles,
             playbook,
         ],
@@ -145,6 +163,12 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
         },
         "selection": {
             "selected_cluster_count": selected_cluster_count,
+            "governed_cluster_count": config.governed_cluster_count,
+            "rfm_selected_cluster_count": rfm_selected_cluster_count,
+            "selection_tolerance": config.selection_tolerance,
+            "selection_rationale": (
+                "Governed count retained only when eligible and within tolerance of the best score"
+            ),
             "scope": "Development features only; evaluator truth excluded",
             "minimum_cluster_share_guardrail": config.minimum_cluster_share,
         },
@@ -176,7 +200,7 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
         candidate_metrics, selected_cluster_count, figure_root / "model_selection.png"
     )
     plot_evaluation_summary(flat_plot_metrics, figure_root / "evaluation_summary.png")
-    scaled_holdout = enhanced_model.named_steps["scale"].transform(holdout_features)
+    scaled_holdout = enhanced_model[:-1].transform(holdout_features)
     plot_segment_map(scaled_holdout, holdout_labels, name_map, figure_root / "segment_map.png")
     plot_segment_profiles(named_profiles, figure_root / "segment_profiles.png")
     plot_decision_playbook(playbook, figure_root / "decision_playbook.png")

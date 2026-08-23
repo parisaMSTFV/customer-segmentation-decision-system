@@ -2,7 +2,7 @@
 
 ## One-minute explanation
 
-I rebuilt a customer segmentation concept as a reproducible decision benchmark. A deterministic generator creates observations and separate evaluator truth. Model selection happens only on a development set using silhouette, seed stability, and a minimum-size guardrail. A frozen ten-feature K-means pipeline is compared with an RFM-only baseline on held-out synthetic customers. The result is translated into testable actions with measurement guardrails, not claimed campaign impact.
+I rebuilt a customer segmentation concept as a reproducible decision benchmark and governed scoring workflow. A deterministic generator creates observations and separate evaluator truth. Candidate evaluation uses development-only bootstrap resamples, separation, stability, size, and an explicit business tolerance. A frozen ten-feature K-means pipeline is compared with both fixed- and self-selected RFM baselines. External snapshots are fitted once, scored without refitting, and monitored for drift and migration. Actions remain hypotheses, not claimed campaign impact.
 
 ## Decisions worth explaining
 
@@ -12,8 +12,9 @@ I rebuilt a customer segmentation concept as a reproducible decision benchmark. 
 - Why protected demographics are excluded from this public decision example.
 - Why a segment label is a summary of current behavior, not a causal diagnosis or permanent identity.
 - Why an action playbook requires experiments before any ROI claim.
+- Why a stable segment definition requires separate fit and score operations.
+- Why failed size, semantic, PSI, or centroid-shift gates place activation on hold.
 
 ## Trade-offs
 
-Six clusters narrowly lead the configured composite selection score. This is evidence for the synthetic benchmark, not a universal business requirement. A production rollout should repeat selection across time windows, assess migration and drift, review small segments, and validate treatment heterogeneity.
-
+Six clusters are retained as a governed taxonomy only when eligible and within a declared tolerance of the best development score. This is a business choice supported by the synthetic benchmark, not a universal statistical requirement. A production rollout should use historical snapshots, review drift and migration, and validate treatment heterogeneity.

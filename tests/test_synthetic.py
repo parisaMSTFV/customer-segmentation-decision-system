@@ -21,6 +21,9 @@ def test_truth_is_separate_and_aligned() -> None:
 
 def test_generated_rates_respect_bounds() -> None:
     features, _ = generate_customers(900, 42)
-    for column in ("margin_rate", "conversion_rate_90d", "discount_order_share", "return_rate"):
+    assert features["margin_rate"].between(-1, 1).all()
+    for column in ("conversion_rate_90d", "discount_order_share", "return_rate"):
         assert features[column].between(0, 1).all()
     assert features["satisfaction_score"].between(1, 5).all()
+    assert features["margin_rate"].lt(0).any()
+    assert features["snapshot_date"].nunique() == 1
