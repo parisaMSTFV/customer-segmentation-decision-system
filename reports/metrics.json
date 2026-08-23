@@ -1,10 +1,10 @@
 {
-  "artifact_fingerprint": "3bd7bcbcc54d81a1",
+  "artifact_fingerprint": "e25a4b4be9de36b5",
   "data": {
     "customers": 3000,
     "development_customers": 2250,
     "holdout_customers": 750,
-    "schema_checks_passed": 8,
+    "schema_checks_passed": 11,
     "synthetic_personas": 6
   },
   "decision_layer": {
@@ -15,21 +15,26 @@
   "evaluation_boundary": "Held-out synthetic customers; no causal or production claims",
   "holdout_evaluation": {
     "enhanced_synthetic_truth_ari": 0.9706769966976773,
-    "holdout_calinski_harabasz": 658.3072718115201,
-    "holdout_davies_bouldin": 0.9190921577750459,
-    "holdout_silhouette": 0.43425651738206683,
+    "holdout_calinski_harabasz": 701.51782873681,
+    "holdout_davies_bouldin": 0.8932233212930987,
+    "holdout_silhouette": 0.4433094737721415,
     "minimum_holdout_segment_share": 0.11733333333333333,
-    "rfm_baseline_synthetic_truth_ari": 0.5381452527447707,
+    "rfm_fixed_k_synthetic_truth_ari": 0.5381452527447707,
+    "rfm_self_selected_synthetic_truth_ari": 0.5746373092129213,
     "shuffled_label_null_ari": -0.0002847030945915073
   },
   "selection": {
+    "governed_cluster_count": 6,
     "minimum_cluster_share_guardrail": 0.05,
+    "rfm_selected_cluster_count": 7,
     "scope": "Development features only; evaluator truth excluded",
-    "selected_cluster_count": 6
+    "selected_cluster_count": 6,
+    "selection_rationale": "Governed count retained only when eligible and within tolerance of the best score",
+    "selection_tolerance": 0.05
   },
   "stability": {
     "bootstrap_runs": 8,
-    "mean_pairwise_ari": 0.997624891372438,
-    "minimum_pairwise_ari": 0.992626611071019
+    "mean_pairwise_ari": 0.9971403638266573,
+    "minimum_pairwise_ari": 0.9941061498078475
   }
 }

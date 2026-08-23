@@ -1,7 +1,7 @@
-cluster_count,silhouette,seed_stability_ari,minimum_cluster_share,eligible,selection_score,selected
-3,0.436919,1.000000,0.144000,True,0.605843,False
-4,0.427298,1.000000,0.144000,True,0.599109,False
-5,0.431645,1.000000,0.144000,True,0.602151,False
-6,0.438266,1.000000,0.125333,True,0.606786,True
-7,0.435776,1.000000,0.068000,True,0.605043,False
-8,0.403983,1.000000,0.068000,True,0.582788,False
+cluster_count,silhouette,silhouette_standard_deviation,resample_stability_ari,minimum_resample_ari,minimum_cluster_share,eligible,selection_score,selected
+3,0.450347,0.001256,0.999087,0.998478,0.144000,True,0.614969,False
+4,0.428530,0.001330,0.997107,0.994745,0.144000,True,0.599103,False
+5,0.436140,0.000900,0.993241,0.988336,0.144000,True,0.603271,False
+6,0.445821,0.001206,0.997639,0.996564,0.125333,True,0.611367,True
+7,0.445471,0.001064,0.997598,0.995647,0.068000,True,0.611109,False
+8,0.417092,0.001274,0.998067,0.996377,0.068000,True,0.591384,False

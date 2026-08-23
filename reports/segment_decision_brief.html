@@ -20,7 +20,7 @@ th{background:#243b53;color:white}h2{margin-top:34px}
 <p>Behavioral and value segmentation evaluated on held-out synthetic customers.</p>
 <div class="boundary"><strong>Decision boundary:</strong> segment actions are hypotheses for
 controlled tests. No campaign lift, ROI improvement, or causal impact is claimed.</div>
-<div class="cards"><div class='card'><span>Selected clusters</span><strong>6</strong></div><div class='card'><span>Holdout truth ARI</span><strong>0.971</strong></div><div class='card'><span>RFM baseline ARI</span><strong>0.538</strong></div><div class='card'><span>Bootstrap stability</span><strong>0.998</strong></div></div>
+<div class="cards"><div class='card'><span>Selected clusters</span><strong>6</strong></div><div class='card'><span>Holdout truth ARI</span><strong>0.971</strong></div><div class='card'><span>RFM fixed-k ARI</span><strong>0.538</strong></div><div class='card'><span>RFM selected-k ARI</span><strong>0.575</strong></div><div class='card'><span>Bootstrap stability</span><strong>0.997</strong></div></div>
 <h2>Holdout profiles</h2><table class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -83,7 +83,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>662</td>
       <td>26.380952</td>
       <td>29.552381</td>
-      <td>9.0%</td>
+      <td>-6.0%</td>
     </tr>
     <tr>
       <td>Dormant low value</td>
@@ -106,6 +106,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <th>testable_action</th>
       <th>guardrail</th>
       <th>impact_status</th>
+      <th>activation_status</th>
     </tr>
   </thead>
   <tbody>
@@ -116,6 +117,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Test recognition benefits or premium cross-sell</td>
       <td>Keep a holdout; avoid discounts that subsidize existing demand</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
     <tr>
       <td>High value at risk</td>
@@ -124,6 +126,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Test a time-boxed, reason-specific win-back journey</td>
       <td>Cap contact frequency and measure incremental reactivation</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
     <tr>
       <td>Growth potential</td>
@@ -132,6 +135,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Test recommendation-led cross-sell before broad incentives</td>
       <td>Track contribution margin as well as conversion</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
     <tr>
       <td>Engaged low conversion</td>
@@ -140,6 +144,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Test onsite guidance, trust cues, or checkout diagnostics</td>
       <td>Do not assume price is the barrier without an experiment</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
     <tr>
       <td>Discount-led frequent</td>
@@ -148,6 +153,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Test margin-safe bundles and thresholded offers</td>
       <td>Enforce contribution-margin and subsidy guardrails</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
     <tr>
       <td>Dormant low value</td>
@@ -156,6 +162,7 @@ controlled tests. No campaign lift, ROI improvement, or causal impact is claimed
       <td>Use low-cost owned-channel tests or suppress paid targeting</td>
       <td>Reassess periodically; never treat the label as permanent</td>
       <td>Hypothesis; requires a randomized or matched evaluation</td>
+      <td>hypothesis_only</td>
     </tr>
   </tbody>
 </table>

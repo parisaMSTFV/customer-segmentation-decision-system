@@ -17,6 +17,7 @@ def test_pipeline_writes_required_artifacts(
         "data/synthetic/evaluator_truth.csv",
         "data/processed/customer_segments.csv",
         "reports/metrics.json",
+        "reports/rfm_model_selection.csv",
         "reports/figures/evaluation_summary.png",
         "reports/figures/model_selection.png",
         "reports/figures/segment_map.png",
@@ -26,6 +27,8 @@ def test_pipeline_writes_required_artifacts(
     ]
     assert all((output_root / relative).is_file() for relative in required)
     assert metrics["selection"]["scope"].startswith("Development features only")
+    assert metrics["selection"]["selected_cluster_count"] == 6
+    assert metrics["selection"]["rfm_selected_cluster_count"] != 6
 
 
 def test_split_is_disjoint_and_truth_is_not_in_assignments(

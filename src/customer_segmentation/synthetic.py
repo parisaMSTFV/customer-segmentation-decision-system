@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+SYNTHETIC_SNAPSHOT_DATE = "2026-01-01"
+
 
 @dataclass(frozen=True)
 class PersonaSpec:
@@ -40,7 +42,7 @@ PERSONAS = (
         "engaged_low_conversion", 0.18, 1.0, 72.0, 82.0, 0.19, 47.0, 0.025, 0.20, 7.0, 0.045, 3.90
     ),
     PersonaSpec(
-        "discount_led_frequent", 0.15, 10.0, 63.0, 24.0, 0.09, 29.0, 0.14, 0.76, 4.0, 0.120, 3.55
+        "discount_led_frequent", 0.15, 10.0, 63.0, 24.0, -0.06, 29.0, 0.14, 0.76, 4.0, 0.120, 3.55
     ),
     PersonaSpec(
         "dormant_low_value", 0.18, 0.5, 48.0, 245.0, 0.14, 2.5, 0.012, 0.42, 1.5, 0.080, 3.35
@@ -88,7 +90,7 @@ def generate_customers(customer_count: int, seed: int) -> tuple[pd.DataFrame, pd
             1,
             365,
         )
-        margin_rate = _bounded_normal(rng, spec.margin_rate, 0.12, size, 0.02, 0.45)
+        margin_rate = _bounded_normal(rng, spec.margin_rate, 0.12, size, -0.30, 0.45)
         sessions_rate = np.clip(spec.sessions * np.exp(latent_activity), 0.1, None)
         sessions = np.clip(rng.poisson(sessions_rate), 0, 180)
         conversion = _bounded_normal(rng, spec.conversion, 0.18, size, 0.001, 0.45)
@@ -99,6 +101,8 @@ def generate_customers(customer_count: int, seed: int) -> tuple[pd.DataFrame, pd
             18,
         )
         return_rate = _bounded_normal(rng, spec.return_rate, 0.22, size, 0, 0.45)
+        inactive_sessions = sessions == 0
+        conversion[inactive_sessions] = 0
         satisfaction = _bounded_normal(rng, spec.satisfaction, 0.05, size, 1, 5)
         customer_ids = [
             f"SYN-CUST-{value:05d}" for value in range(customer_offset, customer_offset + size)
@@ -108,6 +112,7 @@ def generate_customers(customer_count: int, seed: int) -> tuple[pd.DataFrame, pd
             pd.DataFrame(
                 {
                     "customer_id": customer_ids,
+                    "snapshot_date": SYNTHETIC_SNAPSHOT_DATE,
                     "recency_days": np.rint(recency).astype(int),
                     "orders_12m": orders.astype(int),
                     "revenue_12m": revenue.round(2),

@@ -47,11 +47,11 @@ def plot_model_selection(
     )
     axis.plot(
         candidates["cluster_count"],
-        candidates["seed_stability_ari"],
+        candidates["resample_stability_ari"],
         marker="o",
         linewidth=2.5,
         color=COLORS["navy"],
-        label="Mean seed stability (ARI)",
+        label="Mean resample stability (ARI)",
     )
     selected = candidates[candidates["cluster_count"] == selected_cluster_count].iloc[0]
     axis.scatter(
@@ -77,13 +77,15 @@ def plot_model_selection(
 def plot_evaluation_summary(metrics: dict[str, float], output_path: Path) -> None:
     """Compare baseline, enhanced recovery, holdout separation, and stability."""
     labels = [
-        "RFM baseline\ntruth ARI",
+        "RFM fixed-k\ntruth ARI",
+        "RFM selected-k\ntruth ARI",
         "Enhanced\ntruth ARI",
         "Holdout\nsilhouette",
         "Bootstrap\nstability ARI",
     ]
     values = [
-        metrics["rfm_baseline_synthetic_truth_ari"],
+        metrics["rfm_fixed_k_synthetic_truth_ari"],
+        metrics["rfm_self_selected_synthetic_truth_ari"],
         metrics["enhanced_synthetic_truth_ari"],
         metrics["holdout_silhouette"],
         metrics["bootstrap_mean_pairwise_ari"],
@@ -92,7 +94,15 @@ def plot_evaluation_summary(metrics: dict[str, float], output_path: Path) -> Non
     fig.patch.set_facecolor(COLORS["ivory"])
     axis.set_facecolor("#FCFAF5")
     bars = axis.bar(
-        labels, values, color=[COLORS["gray"], COLORS["teal"], COLORS["blue"], COLORS["navy"]]
+        labels,
+        values,
+        color=[
+            COLORS["gray"],
+            COLORS["gold"],
+            COLORS["teal"],
+            COLORS["blue"],
+            COLORS["navy"],
+        ],
     )
     axis.bar_label(bars, labels=[f"{value:.3f}" for value in values], padding=4, weight="bold")
     axis.set_ylim(0, 1.08)
@@ -281,7 +291,8 @@ def write_decision_brief(
         for label, value in (
             ("Selected clusters", f"{int(metrics['selected_cluster_count'])}"),
             ("Holdout truth ARI", f"{metrics['enhanced_synthetic_truth_ari']:.3f}"),
-            ("RFM baseline ARI", f"{metrics['rfm_baseline_synthetic_truth_ari']:.3f}"),
+            ("RFM fixed-k ARI", f"{metrics['rfm_fixed_k_synthetic_truth_ari']:.3f}"),
+            ("RFM selected-k ARI", f"{metrics['rfm_self_selected_synthetic_truth_ari']:.3f}"),
             ("Bootstrap stability", f"{metrics['bootstrap_mean_pairwise_ari']:.3f}"),
         )
     )

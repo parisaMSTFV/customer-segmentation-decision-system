@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml/badge.svg)](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB)](https://www.python.org/)
-[![Input](https://img.shields.io/badge/input-CSV%20contract%20v1.0-0F766E)](docs/INPUT_SCHEMA.md)
+[![Input](https://img.shields.io/badge/input-CSV%20contract%20v2.0-0F766E)](docs/INPUT_SCHEMA.md)
 
-Turn behavioral and value signals into a validated six-segment decision layer with explicit action hypotheses and measurement guardrails. The same schema supports both the controlled benchmark and a user's customer-feature CSV.
+Turn behavioral and value signals into a governed six-segment decision layer with frozen scoring, drift monitoring, explicit action hypotheses, and measurement guardrails.
 
 ## Executive summary
 
-Customer targeting becomes difficult when value, activity, price sensitivity, engagement, and experience signals are reviewed separately. This project generates a fully synthetic customer benchmark, selects a K-means solution on 2,250 development customers, freezes the pipeline, and evaluates it on 750 untouched holdout customers. The selected ten-feature model recovers the planted synthetic structure with an adjusted Rand index (ARI) of **0.971**, compared with **0.538** for an RFM-only baseline. Holdout silhouette is **0.434**, and mean bootstrap stability is **0.998**.
+Customer targeting becomes difficult when value, activity, price sensitivity, engagement, and experience signals are reviewed separately. This project generates a fully synthetic customer benchmark, evaluates K-means candidates on 2,250 development customers, freezes the governed six-segment pipeline, and evaluates it on 750 untouched holdout customers. The ten-feature model recovers the planted synthetic structure with an adjusted Rand index (ARI) of **0.971**, compared with **0.538** for a fixed-`k` RFM baseline and **0.575** for an independently selected RFM baseline. Holdout silhouette is **0.443**, and mean bootstrap stability is **0.997**.
 
 The output is a six-segment decision layer with an action hypothesis and a measurement guardrail for every segment. These results verify the public pipeline against known synthetic structure; they do **not** demonstrate campaign lift, ROI improvement, or production accuracy.
 
@@ -18,12 +18,19 @@ The output is a six-segment decision layer with an action hypothesis and a measu
 
 ```bash
 python -m pip install -e ".[dev]"
-customer-segmentation segment \
-  --input /path/to/customer_features.csv \
-  --output-dir artifacts/customer-segmentation
+customer-segmentation fit \
+  --input /path/to/training_snapshot.csv \
+  --model-dir artifacts/customer-segmentation/model \
+  --output-dir artifacts/customer-segmentation/fit
+
+customer-segmentation score \
+  --input /path/to/current_snapshot.csv \
+  --model-dir artifacts/customer-segmentation/model \
+  --output-dir artifacts/customer-segmentation/score \
+  --previous-assignments artifacts/customer-segmentation/fit/customer_segments.csv
 ```
 
-The command validates ten declared features, rejects label leakage, fits the governed six-segment definition, and writes a stable assignment schema plus a fingerprinted segment definition. Campaign impact remains `Not evaluated`. See the [external input contract](docs/INPUT_SCHEMA.md).
+`fit` validates a dated feature snapshot, checks whether the governed taxonomy is supported, and saves an integrity-checked definition. `score` reuses that frozen definition, reports PSI, centroid shift, and optional customer migration, and marks assignments `review_required` when monitoring gates fail. Campaign impact remains `Not evaluated`. See the [external input contract](docs/INPUT_SCHEMA.md).
 
 ## Business problem
 
@@ -37,7 +44,7 @@ This repository addresses three portfolio-relevant questions:
 
 ## Analytical questions
 
-- Which number of clusters balances separation, seed stability, and usable segment size?
+- Which number of clusters balances separation, resample stability, usable segment size, and the governed business taxonomy?
 - How much synthetic structure does the enhanced feature set recover relative to RFM alone?
 - Are the selected clusters stable when the development population is resampled?
 - What behaviors make each cluster distinct on the holdout set?
@@ -75,12 +82,13 @@ flowchart TD
 
 - **Development:** 2,250 customers for candidate selection, scaling, centroid fitting, and bootstrap analysis.
 - **Holdout:** 750 customers used only after the enhanced and baseline models are frozen.
-- **Model candidates:** K-means with `k` from 3 through 8 and five controlled selection seeds.
+- **Model candidates:** K-means with `k` from 3 through 8 across five bootstrap resamples.
 - **Eligibility guardrail:** every development cluster must contain at least 5% of customers.
-- **Selection score:** 70% mean silhouette and 30% mean seed-stability ARI.
-- **Baseline:** a K-means model using recency, frequency, and monetary value only, fitted on the same development population with the selected `k`.
+- **Selection score:** 70% mean silhouette and 30% resample-stability ARI.
+- **Governed choice:** six segments are retained only when eligible and within the configured practical tolerance of the best candidate.
+- **Baselines:** RFM is reported once at the governed `k` and once at the `k` selected by its own candidate evidence.
 
-The selected `k=6` score is **0.606786**, narrowly ahead of `k=3` at **0.605843** and `k=7` at **0.605043**. The close result is a sensitivity warning, not evidence that six segments are universally correct.
+The candidate table exposes the score spread, silhouette standard deviation, minimum resample ARI, and the business tolerance used to retain `k=6`. Six segments are a governed decision within that tolerance, not a universal statistical truth.
 
 ![Development-only model selection](reports/figures/model_selection.png)
 
@@ -89,9 +97,9 @@ The selected `k=6` score is **0.606786**, narrowly ahead of `k=3` at **0.605843*
 1. Generate deterministic synthetic observations and a separate evaluator-truth table.
 2. Validate identifiers, required fields, missingness, rate bounds, and absence of truth leakage.
 3. Split customers once with a controlled seed.
-4. Apply `log1p` to skewed count and monetary features, then standardize using development-only parameters.
-5. Evaluate candidate cluster counts using separation, seed stability, and minimum-size constraints.
-6. Fit the final enhanced and RFM baseline pipelines on development customers.
+4. Apply `log1p` to skewed count and monetary features, clip development extremes, then standardize using development-only parameters.
+5. Evaluate candidate cluster counts using separation, bootstrap-resample stability, minimum-size constraints, and an explicit business tolerance.
+6. Fit the enhanced model plus fixed- and independently selected-`k` RFM baselines on development customers.
 7. Predict untouched holdout customers and compute intrinsic and synthetic-evaluator metrics.
 8. Repeat fitting on eight bootstrap samples and compare predictions on a common development frame.
 9. Assign descriptive names from relative holdout profiles and create a decision playbook with explicit guardrails.
@@ -99,33 +107,34 @@ The selected `k=6` score is **0.606786**, narrowly ahead of `k=3` at **0.605843*
 
 ## Baseline
 
-The RFM-only baseline uses the same transformation and K-means implementation as the enhanced model, but sees only recency, orders, and revenue. Holding the algorithm and development split constant makes the comparison about feature coverage rather than modeling complexity.
+The RFM-only baselines use the same preprocessing and K-means implementation as the enhanced model, but see only recency, orders, and revenue. The fixed-`k` comparison isolates feature coverage; the self-selected comparison allows RFM to choose its own cluster count.
 
-The baseline reaches holdout synthetic-truth ARI **0.538**. The enhanced ten-feature model reaches **0.971**, an absolute improvement of **0.433** on this synthetic benchmark.
+The fixed-`k` RFM baseline reaches holdout synthetic-truth ARI **0.538** and the self-selected RFM baseline reaches **0.575**. The enhanced ten-feature model reaches **0.971**.
 
 ## Evaluation metrics
 
 | Metric | Executed result | Interpretation |
 |---|---:|---|
 | Enhanced holdout synthetic-truth ARI | 0.971 | Recovery of planted structure; synthetic evaluator only |
-| RFM baseline holdout synthetic-truth ARI | 0.538 | Understandable comparison using three classic value features |
+| RFM fixed-`k` holdout synthetic-truth ARI | 0.538 | Feature-coverage comparison at the governed cluster count |
+| RFM self-selected holdout synthetic-truth ARI | 0.575 | RFM chooses its own cluster count from development evidence |
 | Shuffled-label null ARI | -0.0003 | Chance-like reference |
-| Holdout silhouette | 0.434 | Separation in the enhanced transformed feature space |
-| Holdout Davies–Bouldin | 0.919 | Compactness/separation; lower is better |
-| Holdout Calinski–Harabasz | 658.3 | Between/within-cluster dispersion ratio |
-| Mean bootstrap pairwise ARI | 0.998 | Agreement across eight resampled fits |
-| Minimum bootstrap pairwise ARI | 0.993 | Worst observed resample agreement |
+| Holdout silhouette | 0.443 | Separation in the enhanced transformed feature space |
+| Holdout Davies–Bouldin | 0.893 | Compactness/separation; lower is better |
+| Holdout Calinski–Harabasz | 701.5 | Between/within-cluster dispersion ratio |
+| Mean bootstrap pairwise ARI | 0.997 | Agreement across eight resampled fits |
+| Minimum bootstrap pairwise ARI | 0.994 | Worst observed resample agreement |
 | Smallest holdout segment | 11.7% | No tiny holdout segment in this run |
 
 The source of record is [`reports/metrics.json`](reports/metrics.json). ARI against planted truth cannot be calculated on ordinary unlabeled customer data; silhouette, size, stability, drift, and expert review remain available.
 
 ## Key results
 
-- Six clusters were selected without using evaluator truth.
+- Six governed clusters were retained without using evaluator truth and only after candidate eligibility checks.
 - The enhanced feature set recovered substantially more planted structure than RFM alone.
 - All six holdout profiles received unique, behavior-based names.
 - Every segment has one testable action, one explicit guardrail, and impact status `Not evaluated`.
-- The complete artifact fingerprint is `3bd7bcbcc54d81a1`; a clean smoke run reproduces it.
+- The complete artifact fingerprint is `e25a4b4be9de36b5`; a clean smoke run reproduces it.
 
 These results describe code executed with seed `42`. They are not estimates of expected results on private or production data.
 
@@ -177,28 +186,29 @@ customer-segmentation-decision-system/
 │   ├── figures/
 │   ├── metrics.json
 │   ├── model_selection.csv
+│   ├── rfm_model_selection.csv
 │   ├── segment_profiles.csv
 │   ├── decision_playbook.csv
 │   └── segment_decision_brief.html
 ├── scripts/check_sensitive.py
 ├── src/customer_segmentation/
+│   ├── artifact.py
+│   └── monitoring.py
 ├── tests/
 ├── .github/workflows/ci.yml
 ├── Makefile
-└── pyproject.toml
+├── pyproject.toml
+└── uv.lock
 ```
 
 The reusable pipeline lives in `src`; no notebook is required to reproduce the result.
 
 ## How to run
 
-Python 3.11 or 3.12 is recommended.
+Python 3.11 or 3.12 is recommended. `uv.lock` pins the resolved development and CI environment.
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+uv sync --all-extras --locked
 make reproduce
 ```
 
@@ -220,16 +230,17 @@ make smoke
 make check
 ```
 
-The current suite contains **22 passing tests** covering:
+The current suite contains **34 passing tests** with a minimum **90% coverage** gate, covering:
 
 - deterministic generation and observation/truth separation;
-- schema, bounds, duplicate identifiers, and truth-leakage rejection;
+- snapshot dates, signed margin, count types, identifiers, bounds, and truth-leakage rejection;
 - feature transformations without input mutation;
-- label-permutation invariance and candidate eligibility;
+- label-permutation invariance, resample stability, candidate eligibility, and governed selection;
 - unique business naming and action/guardrail completeness;
 - required pipeline artifacts, split integrity, and deterministic fingerprints;
 - explicit absence of campaign-impact claims.
-- external CSV validation, stable assignment schema, and segment-definition fingerprints.
+- row-order-invariant model definitions, frozen scoring, integrity checks, drift, and migration;
+- fail-closed behavior for weak or undersized external populations.
 
 Ruff linting and formatting, the complete smoke pipeline, and the sensitive-content scan also pass locally. GitHub Actions runs the same controls on Python 3.11 and 3.12 without credentials or private data.
 
@@ -242,21 +253,20 @@ Segment labels must not be treated as sensitive-trait inference, fraud evidence,
 ## Limitations
 
 - Synthetic personas are cleaner and more stable than real customer behavior, so the high truth ARI is expected to overstate production recoverability.
-- The six-cluster selection advantage is narrow and should be tested across time windows and business constraints.
+- Six clusters are a governed choice within an explicit tolerance; production owners must revalidate that taxonomy across time and business constraints.
 - K-means favors roughly spherical structure after scaling and may miss nonlinear or density-based patterns.
 - The public feature set excludes seasonality, acquisition channel, campaign exposure, category sequences, and missing-data mechanisms.
-- Bootstrap agreement tests sampling robustness, not temporal drift.
+- The public benchmark is an IID holdout rather than a historical out-of-time backtest; operational scoring nevertheless exposes dated snapshots, migration, PSI, and centroid drift.
 - Business names are relative summaries of the current profiles and require stakeholder review.
 - No campaign was executed; lift, incremental revenue, retention effect, and ROI are `Not evaluated`.
 
 ## Potential next steps
 
-1. Add time-based backtesting, segment migration matrices, and population-stability monitoring.
+1. Run historical out-of-time backtests using governed customer snapshots.
 2. Compare K-means with Gaussian mixture and hierarchical alternatives under the same guardrails.
-3. Add missingness and outlier stress scenarios to the synthetic generator.
+3. Add missingness, proxy-risk, and heavier outlier stress scenarios to the synthetic generator.
 4. Evaluate fairness and exclusion risks before introducing geography or other potentially sensitive proxies.
 5. Run controlled activation experiments and report incremental lift with confidence intervals.
-6. Add model-version and segment-definition governance for production refreshes.
 
 ## Interview guide
 

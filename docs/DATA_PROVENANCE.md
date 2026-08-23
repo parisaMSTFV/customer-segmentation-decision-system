@@ -10,7 +10,7 @@ All customer features and evaluator labels are generated locally from explicit p
 
 ## Evaluation split
 
-The fixed seed creates 2,250 development customers and 750 holdout customers. Candidate cluster counts, scaling parameters, centroids, and business-name profiles are learned without using holdout truth. Synthetic truth ARI is then calculated on the holdout as an evaluator-only diagnostic.
+The fixed seed creates 2,250 development customers and 750 holdout customers. Candidate cluster counts, clipping and scaling parameters, centroids, and business-name profiles are learned without using holdout truth. Synthetic truth ARI is then calculated on the holdout as an evaluator-only diagnostic.
 
 ## Appropriate use
 
@@ -18,4 +18,4 @@ This benchmark verifies code behavior, recovery of known synthetic structure, an
 
 ## External-input mode
 
-The `segment` command accepts a local CSV through the versioned feature contract in [`INPUT_SCHEMA.md`](INPUT_SCHEMA.md). It records the input filename and SHA-256 checksum, but does not copy the source file into repository data or include evaluator truth. Its assignments are marked `descriptive_only`; action hypotheses still require controlled measurement.
+The `fit` command creates a versioned, integrity-checked model from one dated snapshot. The `score` command applies that frozen definition to the same or a later snapshot without refitting, calculates drift diagnostics, and can compare assignments with a prior period. Source files remain local and assignments stay descriptive; action hypotheses still require controlled measurement.

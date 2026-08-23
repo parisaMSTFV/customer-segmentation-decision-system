@@ -6,6 +6,7 @@ from itertools import combinations
 
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.pipeline import Pipeline
@@ -14,10 +15,37 @@ from sklearn.preprocessing import StandardScaler
 from customer_segmentation.config import AnalysisConfig
 
 
+class QuantileClipper(TransformerMixin, BaseEstimator):
+    """Clip each feature to training quantiles before scaling."""
+
+    def __init__(self, lower_quantile: float = 0.005, upper_quantile: float = 0.995) -> None:
+        self.lower_quantile = lower_quantile
+        self.upper_quantile = upper_quantile
+
+    def fit(self, values: pd.DataFrame | np.ndarray, y: object = None) -> QuantileClipper:
+        """Learn per-feature clipping bounds."""
+        array = np.asarray(values, dtype=float)
+        self.lower_bounds_ = np.quantile(array, self.lower_quantile, axis=0)
+        self.upper_bounds_ = np.quantile(array, self.upper_quantile, axis=0)
+        return self
+
+    def transform(self, values: pd.DataFrame | np.ndarray) -> np.ndarray:
+        """Apply the learned clipping bounds."""
+        array = np.asarray(values, dtype=float)
+        return np.clip(array, self.lower_bounds_, self.upper_bounds_)
+
+    def clipped_customer_share(self, values: pd.DataFrame | np.ndarray) -> float:
+        """Return the share of rows affected by at least one clipping bound."""
+        array = np.asarray(values, dtype=float)
+        clipped = (array < self.lower_bounds_) | (array > self.upper_bounds_)
+        return float(clipped.any(axis=1).mean())
+
+
 def build_model(cluster_count: int, seed: int) -> Pipeline:
     """Create a scaling and K-means pipeline with a controlled seed."""
     return Pipeline(
         [
+            ("clip", QuantileClipper()),
             ("scale", StandardScaler()),
             (
                 "cluster",
@@ -25,6 +53,11 @@ def build_model(cluster_count: int, seed: int) -> Pipeline:
             ),
         ]
     )
+
+
+def transform_for_clustering(model: Pipeline, features: pd.DataFrame) -> np.ndarray:
+    """Apply every fitted preprocessing step without predicting clusters."""
+    return np.asarray(model[:-1].transform(features), dtype=float)
 
 
 def mean_pairwise_ari(label_sets: list[np.ndarray]) -> float:
@@ -36,20 +69,26 @@ def mean_pairwise_ari(label_sets: list[np.ndarray]) -> float:
 
 
 def evaluate_candidates(features: pd.DataFrame, config: AnalysisConfig) -> pd.DataFrame:
-    """Evaluate candidate cluster counts using only development features."""
+    """Evaluate candidates across bootstrap resamples of development features."""
     records: list[dict[str, float | int | bool]] = []
     for cluster_count in config.candidate_clusters:
-        labels_by_seed: list[np.ndarray] = []
+        labels_by_resample: list[np.ndarray] = []
         silhouettes: list[float] = []
         minimum_shares: list[float] = []
         for seed in config.selection_seeds:
+            rng = np.random.default_rng(seed)
+            sample_indices = rng.integers(0, len(features), size=len(features))
             model = build_model(cluster_count, seed)
-            labels = model.fit_predict(features)
-            scaled = model.named_steps["scale"].transform(features)
-            labels_by_seed.append(labels)
+            model.fit(features.iloc[sample_indices])
+            labels = model.predict(features)
+            scaled = transform_for_clustering(model, features)
+            labels_by_resample.append(labels)
             silhouettes.append(float(silhouette_score(scaled, labels)))
             minimum_shares.append(float(pd.Series(labels).value_counts(normalize=True).min()))
-        stability = mean_pairwise_ari(labels_by_seed)
+        pairwise_scores = [
+            adjusted_rand_score(left, right) for left, right in combinations(labels_by_resample, 2)
+        ]
+        stability = float(np.mean(pairwise_scores))
         silhouette = float(np.mean(silhouettes))
         minimum_share = float(np.min(minimum_shares))
         eligible = minimum_share >= config.minimum_cluster_share
@@ -60,7 +99,9 @@ def evaluate_candidates(features: pd.DataFrame, config: AnalysisConfig) -> pd.Da
             {
                 "cluster_count": cluster_count,
                 "silhouette": silhouette,
-                "seed_stability_ari": stability,
+                "silhouette_standard_deviation": float(np.std(silhouettes, ddof=1)),
+                "resample_stability_ari": stability,
+                "minimum_resample_ari": float(np.min(pairwise_scores)),
                 "minimum_cluster_share": minimum_share,
                 "eligible": eligible,
                 "selection_score": selection_score,
@@ -69,15 +110,37 @@ def evaluate_candidates(features: pd.DataFrame, config: AnalysisConfig) -> pd.Da
     return pd.DataFrame.from_records(records).sort_values("cluster_count").reset_index(drop=True)
 
 
-def select_cluster_count(candidate_metrics: pd.DataFrame) -> int:
-    """Select the highest-scoring eligible candidate with a smaller-k tie break."""
+def select_cluster_count(
+    candidate_metrics: pd.DataFrame,
+    governed_cluster_count: int | None = None,
+    selection_tolerance: float = 0.0,
+) -> int:
+    """Select an eligible candidate while treating practically tied scores explicitly."""
     eligible = candidate_metrics[candidate_metrics["eligible"]].copy()
     if eligible.empty:
         raise ValueError("no candidate satisfies the minimum cluster-share guardrail")
-    selected = eligible.sort_values(
-        ["selection_score", "cluster_count"], ascending=[False, True]
-    ).iloc[0]
-    return int(selected["cluster_count"])
+    best_score = float(eligible["selection_score"].max())
+    tied = eligible[eligible["selection_score"] >= best_score - selection_tolerance]
+    if governed_cluster_count is not None:
+        governed = tied[tied["cluster_count"] == governed_cluster_count]
+        if not governed.empty:
+            return governed_cluster_count
+    return int(tied["cluster_count"].min())
+
+
+def governed_candidate_is_supported(
+    candidate_metrics: pd.DataFrame,
+    governed_cluster_count: int,
+    selection_tolerance: float,
+) -> bool:
+    """Check whether the governed taxonomy is eligible and close enough to the best score."""
+    eligible = candidate_metrics[candidate_metrics["eligible"]]
+    governed = eligible[eligible["cluster_count"] == governed_cluster_count]
+    if governed.empty:
+        return False
+    best_score = float(eligible["selection_score"].max())
+    governed_score = float(governed.iloc[0]["selection_score"])
+    return governed_score >= best_score - selection_tolerance
 
 
 def bootstrap_stability(
