@@ -89,9 +89,14 @@ def evaluate_candidates(features: pd.DataFrame, config: AnalysisConfig) -> pd.Da
             adjusted_rand_score(left, right) for left, right in combinations(labels_by_resample, 2)
         ]
         stability = float(np.mean(pairwise_scores))
+        minimum_stability = float(np.min(pairwise_scores))
         silhouette = float(np.mean(silhouettes))
         minimum_share = float(np.min(minimum_shares))
-        eligible = minimum_share >= config.minimum_cluster_share
+        eligible = bool(
+            minimum_share >= config.minimum_cluster_share
+            and silhouette >= config.minimum_silhouette
+            and minimum_stability >= config.minimum_resample_stability
+        )
         selection_score = (
             config.silhouette_weight * silhouette + config.stability_weight * stability
         )
@@ -101,7 +106,7 @@ def evaluate_candidates(features: pd.DataFrame, config: AnalysisConfig) -> pd.Da
                 "silhouette": silhouette,
                 "silhouette_standard_deviation": float(np.std(silhouettes, ddof=1)),
                 "resample_stability_ari": stability,
-                "minimum_resample_ari": float(np.min(pairwise_scores)),
+                "minimum_resample_ari": minimum_stability,
                 "minimum_cluster_share": minimum_share,
                 "eligible": eligible,
                 "selection_score": selection_score,

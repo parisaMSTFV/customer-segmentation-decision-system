@@ -5,7 +5,12 @@ import pandas as pd
 import pytest
 
 from customer_segmentation.modeling import QuantileClipper
-from customer_segmentation.monitoring import build_migration_matrix, segment_share_psi
+from customer_segmentation.monitoring import (
+    build_feature_psi_reference,
+    build_migration_matrix,
+    feature_psi,
+    segment_share_psi,
+)
 
 
 def test_quantile_clipper_reports_affected_customers() -> None:
@@ -35,3 +40,24 @@ def test_migration_matrix_rejects_nonoverlapping_customers() -> None:
     previous = pd.DataFrame({"customer_id": ["2"], "segment_name": ["B"]})
     with pytest.raises(ValueError, match="no overlapping"):
         build_migration_matrix(current, previous)
+
+
+def test_feature_psi_detects_distribution_shift() -> None:
+    training = pd.DataFrame(
+        {"stable": np.arange(100, dtype=float), "shifted": np.arange(100, dtype=float)}
+    )
+    reference = build_feature_psi_reference(training)
+    current = training.copy()
+    current["shifted"] += 500
+    scores = feature_psi(reference, current)
+    assert scores["stable"] == pytest.approx(0)
+    assert scores["shifted"] > 1
+
+
+def test_feature_psi_rejects_mismatched_columns_and_invalid_bins() -> None:
+    frame = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+    with pytest.raises(ValueError, match="at least two bins"):
+        build_feature_psi_reference(frame, bins=1)
+    reference = build_feature_psi_reference(frame)
+    with pytest.raises(ValueError, match="does not match"):
+        feature_psi(reference, frame.rename(columns={"x": "y"}))

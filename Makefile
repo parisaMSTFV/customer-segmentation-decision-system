@@ -1,28 +1,28 @@
 .PHONY: install reproduce smoke fit-fixture score-fixture test lint security check
 
 install:
-	python -m pip install -e ".[dev]"
+	uv sync --locked --extra dev
 
 reproduce:
-	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli reproduce
+	MPLCONFIGDIR=.matplotlib uv run --locked customer-segmentation reproduce
 
 smoke:
-	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli smoke
+	MPLCONFIGDIR=.matplotlib uv run --locked customer-segmentation smoke
 
 fit-fixture:
-	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli fit --input data/synthetic/customer_features.csv --model-dir artifacts/model --output-dir artifacts/fit-fixture
+	MPLCONFIGDIR=.matplotlib uv run --locked customer-segmentation fit --input data/synthetic/customer_features.csv --model-dir artifacts/model --output-dir artifacts/fit-fixture --allow-raw-identifiers
 
 score-fixture: fit-fixture
-	MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli score --input data/synthetic/customer_features.csv --model-dir artifacts/model --output-dir artifacts/score-fixture --previous-assignments artifacts/fit-fixture/customer_segments.csv
+	MPLCONFIGDIR=.matplotlib uv run --locked customer-segmentation score --input data/synthetic/customer_features.csv --model-dir artifacts/model --output-dir artifacts/score-fixture --previous-assignments artifacts/fit-fixture/customer_segments.csv --allow-raw-identifiers
 
 test:
-	MPLCONFIGDIR=.matplotlib python -m pytest
+	MPLCONFIGDIR=.matplotlib uv run --locked pytest
 
 lint:
-	python -m ruff check .
-	python -m ruff format --check .
+	uv run --locked ruff check .
+	uv run --locked ruff format --check .
 
 security:
-	python scripts/check_sensitive.py
+	uv run --locked python scripts/check_sensitive.py
 
 check: lint test security smoke score-fixture
