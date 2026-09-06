@@ -27,6 +27,7 @@ def test_pipeline_writes_required_artifacts(
     ]
     assert all((output_root / relative).is_file() for relative in required)
     assert metrics["selection"]["scope"].startswith("Development features only")
+    assert metrics["selection"]["business_name_source"].startswith("Development profiles")
     assert metrics["selection"]["selected_cluster_count"] == 6
     assert metrics["selection"]["rfm_selected_cluster_count"] != 6
 
@@ -38,6 +39,7 @@ def test_split_is_disjoint_and_truth_is_not_in_assignments(
     assignments = pd.read_csv(output_root / "data/processed/customer_segments.csv")
     truth = pd.read_csv(output_root / "data/synthetic/evaluator_truth.csv")
     assert "synthetic_persona" not in assignments.columns
+    assert assignments["identifier_policy"].eq("synthetic_public_ids").all()
     assert set(assignments["customer_id"]) == set(truth["customer_id"])
     assert set(assignments["split"]) == {"development", "holdout"}
 

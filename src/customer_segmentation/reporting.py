@@ -184,7 +184,7 @@ def plot_segment_profiles(
         "return_rate",
         "satisfaction_score",
     ]
-    raw = profiles.set_index("segment_name")[feature_columns]
+    raw = profiles.set_index("segment_name")[feature_columns].astype(float)
     standard_deviation = raw.std(ddof=0).replace(0, 1)
     normalized = (raw - raw.mean()) / standard_deviation
     labels = [

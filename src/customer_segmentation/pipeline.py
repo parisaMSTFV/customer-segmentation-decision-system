@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from customer_segmentation.config import DEFAULT_CONFIG_PATH, load_config
+from customer_segmentation.config import load_config
 from customer_segmentation.evaluation import evaluate_holdout
 from customer_segmentation.features import RFM_COLUMNS, prepare_features
 from customer_segmentation.labeling import (
@@ -49,7 +49,7 @@ def _artifact_fingerprint(paths: list[Path]) -> str:
     return digest.hexdigest()[:16]
 
 
-def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> dict[str, object]:
+def run_pipeline(output_root: Path, config_path: Path | None = None) -> dict[str, object]:
     """Regenerate data, models, evaluations, figures, and the decision brief."""
     config = load_config(config_path)
     observations, truth = generate_customers(config.customer_count, config.seed)
@@ -88,6 +88,12 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
 
     enhanced_model = build_model(selected_cluster_count, config.seed)
     enhanced_model.fit(development_features)
+    development_labels = enhanced_model.predict(development_features)
+    development_profiles = create_cluster_profiles(
+        development,
+        pd.Series(development_labels),
+    )
+    name_map = assign_business_names(development_profiles, require_confident_match=True)
     development_rfm_features = prepare_features(development, RFM_COLUMNS)
     rfm_candidate_metrics = evaluate_candidates(development_rfm_features, config)
     rfm_selected_cluster_count = select_cluster_count(
@@ -116,7 +122,6 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
         config.seed,
     )
     profiles = create_cluster_profiles(holdout, pd.Series(holdout_labels))
-    name_map = assign_business_names(profiles, require_confident_match=True)
     named_profiles = name_profiles(profiles, name_map)
     playbook = build_decision_playbook(named_profiles)
 
@@ -125,6 +130,7 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
     segments = observations[["customer_id", SNAPSHOT_COLUMN]].copy()
     segments["cluster_id"] = all_labels
     segments["segment_name"] = segments["cluster_id"].map(name_map)
+    segments["identifier_policy"] = "synthetic_public_ids"
     segments = segments.merge(split_assignments, on="customer_id", validate="one_to_one")
 
     data_paths = [
@@ -171,6 +177,9 @@ def run_pipeline(output_root: Path, config_path: Path = DEFAULT_CONFIG_PATH) -> 
             ),
             "scope": "Development features only; evaluator truth excluded",
             "minimum_cluster_share_guardrail": config.minimum_cluster_share,
+            "minimum_silhouette_guardrail": config.minimum_silhouette,
+            "minimum_resample_stability_guardrail": config.minimum_resample_stability,
+            "business_name_source": "Development profiles only; frozen before holdout evaluation",
         },
         "holdout_evaluation": holdout_metrics,
         "stability": {

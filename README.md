@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml/badge.svg)](https://github.com/parisaMSTFV/customer-segmentation-decision-system/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB)](https://www.python.org/)
-[![Input](https://img.shields.io/badge/input-CSV%20contract%20v2.0-0F766E)](docs/INPUT_SCHEMA.md)
+[![Input](https://img.shields.io/badge/input-CSV%20contract%20v3.0-0F766E)](docs/INPUT_SCHEMA.md)
 
 Turn behavioral and value signals into a governed six-segment decision layer with frozen scoring, drift monitoring, explicit action hypotheses, and measurement guardrails.
 
@@ -17,7 +17,9 @@ The output is a six-segment decision layer with an action hypothesis and a measu
 ## Use your customer features
 
 ```bash
-python -m pip install -e ".[dev]"
+uv sync --locked --extra dev
+export CUSTOMER_SEGMENTATION_ID_SALT="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+
 customer-segmentation fit \
   --input /path/to/training_snapshot.csv \
   --model-dir artifacts/customer-segmentation/model \
@@ -30,7 +32,7 @@ customer-segmentation score \
   --previous-assignments artifacts/customer-segmentation/fit/customer_segments.csv
 ```
 
-`fit` validates a dated feature snapshot, checks whether the governed taxonomy is supported, and saves an integrity-checked definition. `score` reuses that frozen definition, reports PSI, centroid shift, and optional customer migration, and marks assignments `review_required` when monitoring gates fail. Campaign impact remains `Not evaluated`. See the [external input contract](docs/INPUT_SCHEMA.md).
+`fit` validates a dated feature snapshot, checks absolute and relative quality floors, and saves a checksum-verified definition. `score` reuses that frozen definition, reports feature PSI, segment-share PSI, centroid shift, and optional customer migration. External assignment IDs are HMAC-pseudonymized by default. Failed monitoring gates mark assignments `review_required`; campaign impact remains `Not evaluated`. See the [external input contract](docs/INPUT_SCHEMA.md).
 
 ## Business problem
 
@@ -83,7 +85,7 @@ flowchart TD
 - **Development:** 2,250 customers for candidate selection, scaling, centroid fitting, and bootstrap analysis.
 - **Holdout:** 750 customers used only after the enhanced and baseline models are frozen.
 - **Model candidates:** K-means with `k` from 3 through 8 across five bootstrap resamples.
-- **Eligibility guardrail:** every development cluster must contain at least 5% of customers.
+- **Eligibility guardrails:** every development cluster must contain at least 5% of customers, mean silhouette must be at least `0.20`, and minimum resample ARI must be at least `0.70`.
 - **Selection score:** 70% mean silhouette and 30% resample-stability ARI.
 - **Governed choice:** six segments are retained only when eligible and within the configured practical tolerance of the best candidate.
 - **Baselines:** RFM is reported once at the governed `k` and once at the `k` selected by its own candidate evidence.
@@ -102,7 +104,7 @@ The candidate table exposes the score spread, silhouette standard deviation, min
 6. Fit the enhanced model plus fixed- and independently selected-`k` RFM baselines on development customers.
 7. Predict untouched holdout customers and compute intrinsic and synthetic-evaluator metrics.
 8. Repeat fitting on eight bootstrap samples and compare predictions on a common development frame.
-9. Assign descriptive names from relative holdout profiles and create a decision playbook with explicit guardrails.
+9. Freeze descriptive names from development profiles, then apply those names to untouched holdout clusters and create a decision playbook.
 10. Generate CSV, JSON, HTML, and PNG artifacts from one command.
 
 ## Baseline
@@ -132,9 +134,9 @@ The source of record is [`reports/metrics.json`](reports/metrics.json). ARI agai
 
 - Six governed clusters were retained without using evaluator truth and only after candidate eligibility checks.
 - The enhanced feature set recovered substantially more planted structure than RFM alone.
-- All six holdout profiles received unique, behavior-based names.
+- All six development profiles received unique, behavior-based names before holdout evaluation.
 - Every segment has one testable action, one explicit guardrail, and impact status `Not evaluated`.
-- The complete artifact fingerprint is `e25a4b4be9de36b5`; a clean smoke run reproduces it.
+- The complete artifact fingerprint is `08c2b456dd75a419`; a clean smoke run reproduces it.
 
 These results describe code executed with seed `42`. They are not estimates of expected results on private or production data.
 
@@ -193,7 +195,8 @@ customer-segmentation-decision-system/
 ├── scripts/check_sensitive.py
 ├── src/customer_segmentation/
 │   ├── artifact.py
-│   └── monitoring.py
+│   ├── monitoring.py
+│   └── resources/analysis.json
 ├── tests/
 ├── .github/workflows/ci.yml
 ├── Makefile
@@ -208,14 +211,14 @@ The reusable pipeline lives in `src`; no notebook is required to reproduce the r
 Python 3.11 or 3.12 is recommended. `uv.lock` pins the resolved development and CI environment.
 
 ```bash
-uv sync --all-extras --locked
+uv sync --locked --extra dev
 make reproduce
 ```
 
 The equivalent direct command is:
 
 ```bash
-MPLCONFIGDIR=.matplotlib python -m customer_segmentation.cli reproduce
+MPLCONFIGDIR=.matplotlib uv run --locked customer-segmentation reproduce
 ```
 
 To execute the full pipeline without modifying repository artifacts:
@@ -230,23 +233,24 @@ make smoke
 make check
 ```
 
-The current suite contains **34 passing tests** with a minimum **90% coverage** gate, covering:
+The current suite contains **59 passing tests** with **94.32% coverage** and a minimum 90% gate, covering:
 
 - deterministic generation and observation/truth separation;
-- snapshot dates, signed margin, count types, identifiers, bounds, and truth-leakage rejection;
+- snapshot dates, signed margin, count types, Unicode and leading-zero identifiers, bounds, and unexpected-column rejection;
 - feature transformations without input mutation;
 - label-permutation invariance, resample stability, candidate eligibility, and governed selection;
 - unique business naming and action/guardrail completeness;
 - required pipeline artifacts, split integrity, and deterministic fingerprints;
 - explicit absence of campaign-impact claims.
-- row-order-invariant model definitions, frozen scoring, integrity checks, drift, and migration;
+- row-order-invariant model definitions, frozen scoring, runtime and checksum checks, feature and segment drift, and migration compatibility;
 - fail-closed behavior for weak or undersized external populations.
+- default HMAC pseudonymization, explicit raw-ID override, and isolated wheel execution.
 
-Ruff linting and formatting, the complete smoke pipeline, and the sensitive-content scan also pass locally. GitHub Actions runs the same controls on Python 3.11 and 3.12 without credentials or private data.
+Ruff linting and formatting, the complete smoke pipeline, the sensitive-content scan, and an isolated non-editable wheel test also pass locally. GitHub Actions runs the same controls on Python 3.11 and 3.12 without private data.
 
 ## Privacy and safety status
 
-All committed records are synthetic, evaluator truth is separated, generated assignments contain no planted labels, and the sensitive-content scan passes. External inputs and `artifacts/` outputs remain local and Git-ignored. Review [SECURITY.md](SECURITY.md) before processing governed customer data.
+All committed records are synthetic, evaluator truth is separated, generated assignments contain no planted labels, and the sensitive-content scan passes. External inputs and `artifacts/` outputs remain local and Git-ignored. External assignment exports use stable HMAC tokens unless `--allow-raw-identifiers` is explicitly supplied. Review [SECURITY.md](SECURITY.md) before processing governed customer data.
 
 Segment labels must not be treated as sensitive-trait inference, fraud evidence, individual eligibility decisions, or permanent customer identities.
 
@@ -256,8 +260,8 @@ Segment labels must not be treated as sensitive-trait inference, fraud evidence,
 - Six clusters are a governed choice within an explicit tolerance; production owners must revalidate that taxonomy across time and business constraints.
 - K-means favors roughly spherical structure after scaling and may miss nonlinear or density-based patterns.
 - The public feature set excludes seasonality, acquisition channel, campaign exposure, category sequences, and missing-data mechanisms.
-- The public benchmark is an IID holdout rather than a historical out-of-time backtest; operational scoring nevertheless exposes dated snapshots, migration, PSI, and centroid drift.
-- Business names are relative summaries of the current profiles and require stakeholder review.
+- The public benchmark is an IID holdout rather than a historical out-of-time backtest; operational scoring nevertheless exposes dated snapshots, migration, feature and segment PSI, and centroid drift.
+- Business names are relative summaries frozen from development profiles and still require stakeholder review.
 - No campaign was executed; lift, incremental revenue, retention effect, and ROI are `Not evaluated`.
 
 ## Potential next steps

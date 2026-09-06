@@ -2,7 +2,7 @@
 
 ## One-minute explanation
 
-I rebuilt a customer segmentation concept as a reproducible decision benchmark and governed scoring workflow. A deterministic generator creates observations and separate evaluator truth. Candidate evaluation uses development-only bootstrap resamples, separation, stability, size, and an explicit business tolerance. A frozen ten-feature K-means pipeline is compared with both fixed- and self-selected RFM baselines. External snapshots are fitted once, scored without refitting, and monitored for drift and migration. Actions remain hypotheses, not claimed campaign impact.
+I rebuilt a customer segmentation concept as a reproducible decision benchmark and governed scoring workflow. A deterministic generator creates observations and separate evaluator truth. Candidate evaluation uses development-only bootstrap resamples, absolute separation and stability floors, size, and an explicit business tolerance. Business names are also frozen on development profiles before holdout evaluation. A frozen ten-feature K-means pipeline is compared with fixed- and self-selected RFM baselines. External snapshots are fitted once, scored without refitting, pseudonymized by default, and monitored for feature drift, segment drift, centroid shift, and compatible migration. Actions remain hypotheses, not claimed campaign impact.
 
 ## Decisions worth explaining
 
@@ -13,7 +13,7 @@ I rebuilt a customer segmentation concept as a reproducible decision benchmark a
 - Why a segment label is a summary of current behavior, not a causal diagnosis or permanent identity.
 - Why an action playbook requires experiments before any ROI claim.
 - Why a stable segment definition requires separate fit and score operations.
-- Why failed size, semantic, PSI, or centroid-shift gates place activation on hold.
+- Why failed size, semantic, feature PSI, segment PSI, or centroid-shift gates place activation on hold.
 
 ## Trade-offs
 

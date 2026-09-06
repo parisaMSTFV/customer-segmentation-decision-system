@@ -17,7 +17,7 @@ from customer_segmentation.artifact import (
     load_model_artifact,
     save_model_artifact,
 )
-from customer_segmentation.config import DEFAULT_CONFIG_PATH, AnalysisConfig, load_config
+from customer_segmentation.config import AnalysisConfig, load_config
 from customer_segmentation.features import prepare_features
 from customer_segmentation.labeling import (
     assign_business_names,
@@ -32,7 +32,9 @@ from customer_segmentation.modeling import (
     transform_for_clustering,
 )
 from customer_segmentation.monitoring import (
+    build_feature_psi_reference,
     build_migration_matrix,
+    feature_psi,
     maximum_centroid_shift,
     segment_share_psi,
 )
@@ -40,23 +42,39 @@ from customer_segmentation.reporting import plot_decision_playbook, plot_segment
 from customer_segmentation.schema import (
     FEATURE_COLUMNS,
     SNAPSHOT_COLUMN,
-    validate_customer_features,
+    load_customer_snapshot,
+    load_previous_assignments,
+    pseudonymize_customer_ids,
+    validate_identifier_policy,
 )
 
-INPUT_CONTRACT_VERSION = "2.0"
-OUTPUT_SCHEMA_VERSION = "2.0"
+INPUT_CONTRACT_VERSION = "3.0"
+OUTPUT_SCHEMA_VERSION = "3.0"
+
+
+def _governance_policy(config: AnalysisConfig) -> dict[str, object]:
+    """Return the fit and scoring policy bound to a segment definition."""
+    return {
+        "governed_cluster_count": config.governed_cluster_count,
+        "minimum_cluster_share": config.minimum_cluster_share,
+        "minimum_cluster_customers": config.minimum_cluster_customers,
+        "selection_tolerance": config.selection_tolerance,
+        "minimum_silhouette": config.minimum_silhouette,
+        "minimum_resample_stability": config.minimum_resample_stability,
+        "maximum_clipped_customer_share": config.maximum_clipped_customer_share,
+        "maximum_feature_psi": config.maximum_feature_psi,
+        "maximum_segment_share_psi": config.maximum_segment_share_psi,
+        "maximum_centroid_shift": config.maximum_centroid_shift,
+        "selection_weights": {
+            "silhouette": config.silhouette_weight,
+            "stability": config.stability_weight,
+        },
+    }
 
 
 def _read_snapshot(input_path: str | Path) -> tuple[Path, pd.DataFrame, int, str]:
     source = Path(input_path).resolve()
-    if not source.is_file():
-        raise FileNotFoundError(f"Input CSV not found: {source}")
-    observations = pd.read_csv(
-        source,
-        dtype={"customer_id": "string", SNAPSHOT_COLUMN: "string"},
-    )
-    checks_passed = validate_customer_features(observations)
-    snapshot_date = str(observations[SNAPSHOT_COLUMN].iloc[0])
+    observations, checks_passed, snapshot_date = load_customer_snapshot(source)
     return source, observations, checks_passed, snapshot_date
 
 
@@ -87,6 +105,7 @@ def _fit_quality(
         metrics["minimum_segment_customers"] >= config.minimum_cluster_customers
         and metrics["minimum_segment_share"] >= config.minimum_cluster_share
         and clipped_share <= config.maximum_clipped_customer_share
+        and intrinsic_silhouette >= config.minimum_silhouette
     )
     return metrics
 
@@ -100,6 +119,9 @@ def _write_outputs(
     assignment_status: str,
     metadata: dict[str, object],
     migration: pd.DataFrame | None = None,
+    *,
+    identifier_policy: str,
+    identifier_salt: str | None,
 ) -> pd.DataFrame:
     profiles = create_cluster_profiles(observations, pd.Series(labels))
     named_profiles = name_profiles(profiles, name_map)
@@ -111,6 +133,9 @@ def _write_outputs(
     assignments["segment_name"] = assignments["cluster_id"].map(name_map)
     assignments["segment_definition_id"] = segment_definition_id
     assignments["assignment_status"] = assignment_status
+    assignments["identifier_policy"] = identifier_policy
+    if identifier_policy == "pseudonymized":
+        assignments = pseudonymize_customer_ids(assignments, identifier_salt or "")
 
     figures = output_dir / "figures"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -136,10 +161,15 @@ def fit_external_segmentation(
     input_path: str | Path,
     model_dir: str | Path,
     output_dir: str | Path | None = None,
-    config_path: Path = DEFAULT_CONFIG_PATH,
+    config_path: Path | None = None,
+    *,
+    identifier_policy: str = "pseudonymized",
+    identifier_salt: str | None = None,
 ) -> dict[str, object]:
     """Fit a governed taxonomy, fail closed on weak structure, and save its artifact."""
     config = load_config(config_path)
+    if output_dir is not None:
+        validate_identifier_policy(identifier_policy, identifier_salt)
     source, observations, checks_passed, snapshot_date = _read_snapshot(input_path)
     if len(observations) < config.minimum_external_customers:
         raise ValueError(
@@ -173,17 +203,7 @@ def fit_external_segmentation(
         snapshot_date,
         training_sha,
         INPUT_CONTRACT_VERSION,
-        {
-            "governed_cluster_count": config.governed_cluster_count,
-            "minimum_cluster_share": config.minimum_cluster_share,
-            "minimum_cluster_customers": config.minimum_cluster_customers,
-            "selection_tolerance": config.selection_tolerance,
-            "maximum_clipped_customer_share": config.maximum_clipped_customer_share,
-            "selection_weights": {
-                "silhouette": config.silhouette_weight,
-                "stability": config.stability_weight,
-            },
-        },
+        _governance_policy(config),
     )
     training_shares = pd.Series(labels).map(name_map).value_counts(normalize=True).to_dict()
     manifest = save_model_artifact(
@@ -197,9 +217,9 @@ def fit_external_segmentation(
             "training_snapshot_date": snapshot_date,
             "training_customers": len(observations),
             "training_data_sha256": training_sha,
-            "source_file": source.name,
             "source_file_sha256": file_sha256(source),
             "training_segment_shares": training_shares,
+            "training_feature_psi_reference": build_feature_psi_reference(features),
             "fit_quality": quality,
         },
     )
@@ -217,6 +237,7 @@ def fit_external_segmentation(
         **quality,
         "segment_definition_id": manifest["segment_definition_id"],
         "assignment_status": "fit_snapshot_descriptive_only",
+        "identifier_policy": identifier_policy if output_dir is not None else "not_exported",
         "campaign_impact": "Not evaluated",
     }
     if output_dir is not None:
@@ -229,6 +250,8 @@ def fit_external_segmentation(
             str(manifest["segment_definition_id"]),
             "fit_snapshot_descriptive_only",
             metadata,
+            identifier_policy=identifier_policy,
+            identifier_salt=identifier_salt,
         )
         candidate_metrics.to_csv(target / "model_selection.csv", index=False, float_format="%.6f")
     return metadata
@@ -239,10 +262,14 @@ def score_external_segmentation(
     model_dir: str | Path,
     output_dir: str | Path,
     previous_assignments: str | Path | None = None,
-    config_path: Path = DEFAULT_CONFIG_PATH,
+    config_path: Path | None = None,
+    *,
+    identifier_policy: str = "pseudonymized",
+    identifier_salt: str | None = None,
 ) -> dict[str, object]:
     """Score a snapshot with a frozen definition and gate activation on monitoring checks."""
     config = load_config(config_path)
+    validate_identifier_policy(identifier_policy, identifier_salt)
     source, observations, checks_passed, snapshot_date = _read_snapshot(input_path)
     if len(observations) < config.minimum_external_customers:
         raise ValueError(
@@ -251,6 +278,8 @@ def score_external_segmentation(
     model, name_map, manifest = load_model_artifact(Path(model_dir).resolve())
     if manifest.get("input_contract_version") != INPUT_CONTRACT_VERSION:
         raise ValueError("Model and scoring input contract versions do not match")
+    if manifest["definition_payload"].get("governance") != _governance_policy(config):
+        raise ValueError("Scoring governance policy does not match the fitted segment definition")
     training_snapshot_date = date.fromisoformat(str(manifest["training_snapshot_date"]))
     if date.fromisoformat(snapshot_date) < training_snapshot_date:
         raise ValueError("Scoring snapshot_date cannot precede the training snapshot")
@@ -260,9 +289,12 @@ def score_external_segmentation(
     quality = _fit_quality(model, features, labels, config)
     segment_names = pd.Series(labels).map(name_map)
     psi = segment_share_psi(manifest["training_segment_shares"], segment_names)
+    feature_psi_scores = feature_psi(manifest["training_feature_psi_reference"], features)
+    maximum_feature_psi = max(feature_psi_scores.values())
     centroid_shift = maximum_centroid_shift(model, features, labels)
     monitoring_passed = bool(
         quality["quality_gate_passed"]
+        and maximum_feature_psi <= config.maximum_feature_psi
         and psi <= config.maximum_segment_share_psi
         and centroid_shift <= config.maximum_centroid_shift
     )
@@ -270,17 +302,28 @@ def score_external_segmentation(
 
     current_preview = observations[["customer_id"]].copy()
     current_preview["segment_name"] = segment_names
+    if identifier_policy == "pseudonymized":
+        current_preview = pseudonymize_customer_ids(current_preview, identifier_salt or "")
     migration = None
     migration_metrics: dict[str, float | int] | None = None
+    previous_snapshot_date: str | None = None
     if previous_assignments is not None:
-        previous = pd.read_csv(previous_assignments, dtype={"customer_id": "string"})
+        previous = load_previous_assignments(Path(previous_assignments).resolve())
+        previous_snapshot_date = str(previous[SNAPSHOT_COLUMN].iloc[0])
+        if date.fromisoformat(previous_snapshot_date) > date.fromisoformat(snapshot_date):
+            raise ValueError("Previous assignments cannot use a later snapshot_date")
+        previous_definition = str(previous["segment_definition_id"].iloc[0])
+        if previous_definition != manifest["segment_definition_id"]:
+            raise ValueError("Previous assignments use a different segment definition")
+        previous_policy = str(previous["identifier_policy"].iloc[0])
+        if previous_policy != identifier_policy:
+            raise ValueError("Previous assignments use a different identifier policy")
         migration, migration_metrics = build_migration_matrix(current_preview, previous)
 
     metadata: dict[str, object] = {
         "run_type": "score",
         "input_contract_version": INPUT_CONTRACT_VERSION,
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
-        "input_file": source.name,
         "input_sha256": file_sha256(source),
         "snapshot_date": snapshot_date,
         "training_snapshot_date": manifest["training_snapshot_date"],
@@ -289,11 +332,15 @@ def score_external_segmentation(
         "schema_checks_passed": checks_passed,
         **quality,
         "segment_share_psi": psi,
+        "feature_psi": feature_psi_scores,
+        "maximum_feature_psi": maximum_feature_psi,
         "maximum_centroid_shift": centroid_shift,
         "monitoring_gate_passed": monitoring_passed,
         "migration": migration_metrics,
+        "previous_snapshot_date": previous_snapshot_date,
         "segment_definition_id": manifest["segment_definition_id"],
         "assignment_status": assignment_status,
+        "identifier_policy": identifier_policy,
         "campaign_impact": "Not evaluated",
     }
     _write_outputs(
@@ -305,6 +352,8 @@ def score_external_segmentation(
         assignment_status,
         metadata,
         migration,
+        identifier_policy=identifier_policy,
+        identifier_salt=identifier_salt,
     )
     return metadata
 
@@ -313,6 +362,10 @@ def run_external_segmentation(
     input_path: str | Path,
     output_dir: str | Path,
     seed: int = 42,
+    config_path: Path | None = None,
+    *,
+    identifier_policy: str = "pseudonymized",
+    identifier_salt: str | None = None,
 ) -> dict[str, object]:
     """Run a guarded one-off fit while retaining the original command contract."""
     if seed != 42:
@@ -320,4 +373,11 @@ def run_external_segmentation(
             "Use the governed configuration seed; custom segment seeds are unsupported"
         )
     target = Path(output_dir).resolve()
-    return fit_external_segmentation(input_path, target / "model", target)
+    return fit_external_segmentation(
+        input_path,
+        target / "model",
+        target,
+        config_path,
+        identifier_policy=identifier_policy,
+        identifier_salt=identifier_salt,
+    )

@@ -1,10 +1,10 @@
 {
-  "artifact_fingerprint": "e25a4b4be9de36b5",
+  "artifact_fingerprint": "08c2b456dd75a419",
   "data": {
     "customers": 3000,
     "development_customers": 2250,
     "holdout_customers": 750,
-    "schema_checks_passed": 11,
+    "schema_checks_passed": 15,
     "synthetic_personas": 6
   },
   "decision_layer": {
@@ -24,8 +24,11 @@
     "shuffled_label_null_ari": -0.0002847030945915073
   },
   "selection": {
+    "business_name_source": "Development profiles only; frozen before holdout evaluation",
     "governed_cluster_count": 6,
     "minimum_cluster_share_guardrail": 0.05,
+    "minimum_resample_stability_guardrail": 0.7,
+    "minimum_silhouette_guardrail": 0.2,
     "rfm_selected_cluster_count": 7,
     "scope": "Development features only; evaluator truth excluded",
     "selected_cluster_count": 6,
